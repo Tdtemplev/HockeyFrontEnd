@@ -1,6 +1,6 @@
 # HockeyFrontEnd (Slab Collection)
 
-A Next.js frontend for your [Slab](https://app.slab.dev-jeb.com) trading card collection. Browse your cards, track portfolio value, research players, compare box expected value, and find the best boxes to chase a player.
+A Next.js frontend for your [Slab](https://app.slab.dev-jeb.com) trading card collection — built to explore the Slab backend with a hockey card focus. Browse your cards, track portfolio value, research players, compare box expected value, and find the best boxes to chase a player.
 
 Your Slab API key stays on the server — the browser never sees it.
 

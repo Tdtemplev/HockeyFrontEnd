@@ -1,21 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo } from "react";
 
 import { SetupPrompt } from "@/components/collection/SetupPrompt";
 import { PriceConfidenceBadge } from "@/components/collection/PriceConfidenceBadge";
+import { useNews } from "@/components/news/NewsProvider";
 import { confidenceToneClass } from "@/lib/slab/confidence";
+import { setLabel } from "@/lib/set-label";
 import { cardSubtitle, cardTitle, formatCurrency } from "@/lib/slab/format";
-import type { NewsPayload } from "@/lib/slab-news";
-import {
-  diffCompAlerts,
-  diffNewSets,
-  loadCompsSnapshot,
-  loadSetsSnapshot,
-  saveAllSnapshots,
-  type CompAlert,
-} from "@/lib/slab-news-snapshot";
+import type { CompAlert } from "@/lib/slab-news-snapshot";
 import type { SetOut } from "@/lib/slab/types";
 
 function formatSoldDate(value?: string | null): string {
@@ -28,13 +22,6 @@ function formatSoldDate(value?: string | null): string {
     day: "numeric",
     year: "numeric",
   }).format(parsed);
-}
-
-function setLabel(set: SetOut): string {
-  const parts = [set.brand, set.season, set.year ? String(set.year) : null, set.name]
-    .filter(Boolean)
-    .join(" · ");
-  return parts || set.slug;
 }
 
 function ConfidenceChange({ alert }: { alert: CompAlert }) {
@@ -90,87 +77,6 @@ function NewSetCard({ set }: { set: SetOut }) {
         <span>{set.sales_90d ?? "—"} sales (90d)</span>
         {set.box_price ? <span>Box {formatCurrency(set.box_price)}</span> : null}
       </div>
-    </div>
-  );
-}
-
-function SetsCatalogTable({
-  sets,
-  newSetUuids,
-}: {
-  sets: SetOut[];
-  newSetUuids: Set<string>;
-}) {
-  const sorted = useMemo(
-    () =>
-      [...sets].sort((a, b) => {
-        const yearA = a.year ?? 0;
-        const yearB = b.year ?? 0;
-        if (yearB !== yearA) return yearB - yearA;
-        return setLabel(a).localeCompare(setLabel(b));
-      }),
-    [sets],
-  );
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[720px] text-left text-sm">
-        <thead>
-          <tr className="border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-500">
-            <th className="pb-3 pr-4 font-medium">Set</th>
-            <th className="pb-3 pr-4 font-medium">Brand</th>
-            <th className="pb-3 pr-4 font-medium">Season</th>
-            <th className="pb-3 pr-4 font-medium text-right">Year</th>
-            <th className="pb-3 pr-4 font-medium">Sport</th>
-            <th className="pb-3 pr-4 font-medium text-right">Cards</th>
-            <th className="pb-3 pr-4 font-medium text-right">Priced</th>
-            <th className="pb-3 pr-4 font-medium text-right">90d sales</th>
-            <th className="pb-3 font-medium text-right">Box</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((set) => {
-            const isNew = newSetUuids.has(set.uuid);
-            return (
-              <tr
-                key={set.uuid}
-                className="border-b border-slate-800/60 last:border-0 hover:bg-slate-950/30"
-              >
-                <td className="py-3 pr-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-white">
-                      {set.name ?? set.slug}
-                    </span>
-                    {isNew ? (
-                      <span className="rounded-full bg-sky-400/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-sky-300">
-                        New
-                      </span>
-                    ) : null}
-                  </div>
-                </td>
-                <td className="py-3 pr-4 text-slate-300">{set.brand ?? "—"}</td>
-                <td className="py-3 pr-4 text-slate-300">{set.season ?? "—"}</td>
-                <td className="py-3 pr-4 text-right text-slate-300">
-                  {set.year ?? "—"}
-                </td>
-                <td className="py-3 pr-4 text-slate-300">{set.sport ?? "—"}</td>
-                <td className="py-3 pr-4 text-right text-slate-300">
-                  {set.card_count ?? "—"}
-                </td>
-                <td className="py-3 pr-4 text-right text-slate-300">
-                  {set.priced_count ?? "—"}
-                </td>
-                <td className="py-3 pr-4 text-right text-slate-300">
-                  {set.sales_90d ?? "—"}
-                </td>
-                <td className="py-3 text-right text-slate-300">
-                  {formatCurrency(set.box_price)}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
     </div>
   );
 }
@@ -234,70 +140,21 @@ function CompAlertRow({ alert }: { alert: CompAlert }) {
 }
 
 export function SlabNewsView() {
-  const [payload, setPayload] = useState<NewsPayload | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [needsSetup, setNeedsSetup] = useState(false);
-  const [hasBaseline, setHasBaseline] = useState(false);
-  const [snapshotVersion, setSnapshotVersion] = useState(0);
-  const [isPending, startTransition] = useTransition();
-
-  useEffect(() => {
-    startTransition(async () => {
-      setError(null);
-
-      const response = await fetch("/api/news");
-
-      if (response.status === 503) {
-        setNeedsSetup(true);
-        return;
-      }
-
-      if (!response.ok) {
-        const body = (await response.json()) as { detail?: string };
-        setError(body.detail ?? "Failed to load Slab News");
-        return;
-      }
-
-      const data = (await response.json()) as NewsPayload;
-      setPayload(data);
-
-      const setsSnapshot = loadSetsSnapshot();
-      const compsSnapshot = loadCompsSnapshot();
-      const baselineExists = Boolean(setsSnapshot && compsSnapshot);
-      setHasBaseline(baselineExists);
-
-      if (!baselineExists) {
-        saveAllSnapshots(data);
-      }
-    });
-  }, []);
-
-  const newSets = useMemo(() => {
-    if (!payload || !hasBaseline) return [];
-    return diffNewSets(payload.sets, loadSetsSnapshot());
-  }, [payload, hasBaseline, snapshotVersion]);
-
-  const compAlerts = useMemo(() => {
-    if (!payload || !hasBaseline) return [];
-    return diffCompAlerts(payload.ownedCards, loadCompsSnapshot());
-  }, [payload, hasBaseline, snapshotVersion]);
+  const {
+    payload,
+    isLoading,
+    error,
+    needsSetup,
+    hasBaseline,
+    newSets,
+    compAlerts,
+    markAllSeen,
+  } = useNews();
 
   const catalogTicker = useMemo(
     () => (payload?.ticker ?? []).filter((item) => item.kind === "catalog"),
     [payload],
   );
-
-  const newSetUuids = useMemo(
-    () => new Set(newSets.map((set) => set.uuid)),
-    [newSets],
-  );
-
-  function markAllSeen() {
-    if (!payload) return;
-    saveAllSnapshots(payload);
-    setHasBaseline(true);
-    setSnapshotVersion((version) => version + 1);
-  }
 
   if (needsSetup) return <SetupPrompt />;
 
@@ -306,7 +163,7 @@ export function SlabNewsView() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm text-slate-400">
-            New packs imported into Slab, comp updates on your cards, and the full set catalog.
+            New packs imported into Slab and comp updates on cards you own.
           </p>
         </div>
         <button
@@ -319,7 +176,7 @@ export function SlabNewsView() {
         </button>
       </div>
 
-      {isPending && !payload ? (
+      {isLoading && !payload ? (
         <div className="space-y-4">
           <div className="h-24 animate-pulse rounded-xl bg-slate-900" />
           <div className="h-64 animate-pulse rounded-xl bg-slate-900" />
@@ -383,22 +240,6 @@ export function SlabNewsView() {
                   : "Comp alerts will appear after your baseline snapshot is saved."}
               </p>
             )}
-          </section>
-
-          <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-white">All sets in Slab</h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  Full catalog for reference and confirmation.
-                </p>
-              </div>
-              <span className="text-sm text-slate-400">{payload.sets.length} total</span>
-            </div>
-
-            <div className="mt-4">
-              <SetsCatalogTable sets={payload.sets} newSetUuids={newSetUuids} />
-            </div>
           </section>
         </>
       ) : null}

@@ -193,3 +193,21 @@ export function saveAllSnapshots(payload: {
   saveSetsSnapshot(payload.sets);
   saveCompsSnapshot(payload.ownedCards);
 }
+
+export function countNewsAlerts(payload: {
+  sets: SetOut[];
+  ownedCards: OwnedCardNews[];
+}): number {
+  const setsSnapshot = loadSetsSnapshot();
+  const compsSnapshot = loadCompsSnapshot();
+  if (!setsSnapshot || !compsSnapshot) return 0;
+
+  return (
+    diffNewSets(payload.sets, setsSnapshot).length +
+    diffCompAlerts(payload.ownedCards, compsSnapshot).length
+  );
+}
+
+export function hasNewsBaseline(): boolean {
+  return Boolean(loadSetsSnapshot() && loadCompsSnapshot());
+}

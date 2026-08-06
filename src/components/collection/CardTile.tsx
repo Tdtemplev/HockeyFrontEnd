@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { PriceConfidenceBadge } from "@/components/collection/PriceConfidenceBadge";
 import { PlayerAvatar, primarySubjectName } from "@/components/collection/PlayerAvatar";
 import type { CardCopyOut } from "@/lib/slab/types";
@@ -38,7 +40,10 @@ export function CardTile({
   const ownedSerial = ownedSerialLabel(copy);
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-xl border border-slate-800 bg-slate-900/60 transition hover:border-slate-600 hover:bg-slate-900">
+    <Link
+      href={`/cards/${copy.card_uuid}`}
+      className="group flex flex-col overflow-hidden rounded-xl border border-slate-800 bg-slate-900/60 transition hover:border-sky-500/40 hover:bg-slate-900"
+    >
       <div className="relative aspect-[3/4] bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 p-4">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.08),transparent_55%)]" />
         <div className="relative flex h-full flex-col justify-between">
@@ -124,6 +129,6 @@ export function CardTile({
           {copy.quantity > 1 ? <span>Qty {copy.quantity}</span> : null}
         </div>
       </div>
-    </article>
+    </Link>
   );
 }

@@ -82,6 +82,7 @@ export interface CollectionResult {
 export interface CollectionSearchQuery {
   q?: string | null;
   subject?: string | null;
+  card_number?: string | null;
   limit?: number;
   offset?: number;
   status?: string[] | null;
@@ -272,4 +273,26 @@ export interface PortfolioHistory {
   start_date: string;
   end_date: string;
   points: PortfolioPoint[];
+}
+
+export interface CardPricePoint {
+  date: string;
+  price_median: string;
+  price_low?: string | null;
+  price_high?: string | null;
+  sample_size?: number;
+  low_confidence?: boolean;
+}
+
+export interface CardPriceHistory {
+  card_uuid: string;
+  card_number: string;
+  subjects: string[];
+  set_name?: string | null;
+  grade_key: string;
+  finish?: string | null;
+  start_date: string;
+  end_date: string;
+  interval: string;
+  points: CardPricePoint[];
 }

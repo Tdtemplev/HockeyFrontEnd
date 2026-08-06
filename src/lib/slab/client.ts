@@ -3,6 +3,8 @@ import type {
   CardComps,
   CardMarket,
   CardCopyOut,
+  CardOut,
+  CardPriceHistory,
   CardSearchQuery,
   CardSearchResult,
   CollectionResult,
@@ -149,6 +151,34 @@ export async function getCardComps(
 
   const suffix = params.toString() ? `?${params.toString()}` : "";
   return slabFetch<CardComps>(`/cards/${cardUuid}/comps${suffix}`);
+}
+
+export async function getCardParallels(cardUuid: string): Promise<CardOut[]> {
+  return slabFetch<CardOut[]>(`/cards/${cardUuid}/parallels`);
+}
+
+export interface CardPriceHistoryQuery {
+  grade_key?: string;
+  finish?: string | null;
+  start?: string;
+  end?: string;
+  interval?: string;
+}
+
+export async function getCardPriceHistory(
+  cardUuid: string,
+  query: CardPriceHistoryQuery = {},
+): Promise<CardPriceHistory> {
+  const params = new URLSearchParams();
+  params.set("grade_key", query.grade_key ?? "RAW");
+  params.set("interval", query.interval ?? "daily");
+  if (query.finish) params.set("finish", query.finish);
+  if (query.start) params.set("start", query.start);
+  if (query.end) params.set("end", query.end);
+
+  return slabFetch<CardPriceHistory>(
+    `/cards/${cardUuid}/price-history?${params.toString()}`,
+  );
 }
 
 export async function getDashboard(): Promise<DashboardStats> {

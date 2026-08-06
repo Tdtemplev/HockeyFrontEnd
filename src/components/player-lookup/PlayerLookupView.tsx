@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 
 import { SetupPrompt } from "@/components/collection/SetupPrompt";
@@ -203,7 +204,10 @@ function VariantRow({ variant }: { variant: PlayerVariant }) {
   const { card, raw, graded } = variant;
 
   return (
-    <article className="rounded-xl border border-slate-800/80 bg-slate-950/30 p-4">
+    <Link
+      href={`/cards/${card.uuid}`}
+      className="block rounded-xl border border-slate-800/80 bg-slate-950/30 p-4 transition hover:border-sky-500/40 hover:bg-slate-950/50"
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h4 className="font-medium text-white">{cardTitle(card)}</h4>
@@ -248,7 +252,11 @@ function VariantRow({ variant }: { variant: PlayerVariant }) {
         <div className="mt-4 border-t border-slate-800/80 pt-4">
           <button
             type="button"
-            onClick={() => setExpanded((current) => !current)}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              setExpanded((current) => !current);
+            }}
             className="text-sm text-sky-400 transition hover:text-sky-300"
           >
             {expanded ? "Hide" : "Show"} recent comps ({raw.recentComps.length}
@@ -292,7 +300,7 @@ function VariantRow({ variant }: { variant: PlayerVariant }) {
           ) : null}
         </div>
       ) : null}
-    </article>
+    </Link>
   );
 }
 

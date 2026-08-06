@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import type { CardCopyOut } from "@/lib/slab/types";
 import {
   cardSubtitle,
@@ -30,7 +32,10 @@ export function CardListRow({
   const ownedSerial = ownedSerialLabel(copy);
 
   return (
-    <article className="grid gap-3 rounded-xl border border-slate-800 bg-slate-900/50 p-4 lg:grid-cols-[auto_minmax(0,2fr)_repeat(5,minmax(0,1fr))] lg:items-center">
+    <Link
+      href={`/cards/${copy.card_uuid}`}
+      className="grid gap-3 rounded-xl border border-slate-800 bg-slate-900/50 p-4 transition hover:border-sky-500/40 hover:bg-slate-900/70 lg:grid-cols-[auto_minmax(0,2fr)_repeat(5,minmax(0,1fr))] lg:items-center"
+    >
       <PlayerAvatar name={playerName} size="sm" />
 
       <div>
@@ -85,6 +90,6 @@ export function CardListRow({
         </p>
         <p className="mt-1 text-white">{formatSignedCurrency(gain)}</p>
       </div>
-    </article>
+    </Link>
   );
 }

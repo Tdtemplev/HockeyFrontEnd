@@ -24,7 +24,11 @@ export async function GET(request: NextRequest) {
     limit: Number(params.get("limit") ?? 48),
     offset: Number(params.get("offset") ?? 0),
     serial: params.get("serial") ? Number(params.get("serial")) : undefined,
+    auto: params.get("auto") === "true" ? true : undefined,
+    rookie: params.get("rookie") === "true" ? true : undefined,
     is_numbered: params.get("is_numbered") === "true" ? true : undefined,
+    graded: params.get("graded") === "true" ? true : undefined,
+    team: params.get("team") ?? undefined,
   };
 
   try {

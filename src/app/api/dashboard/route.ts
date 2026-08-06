@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
-import { getSetSealed, SlabApiError } from "@/lib/slab/client";
+import { getDashboard, SlabApiError } from "@/lib/slab/client";
 
 function handleError(error: unknown) {
   if (error instanceof SlabApiError) {
@@ -12,14 +12,10 @@ function handleError(error: unknown) {
   return NextResponse.json({ detail: message }, { status });
 }
 
-export async function GET(
-  _request: NextRequest,
-  context: { params: Promise<{ setUuid: string }> },
-) {
+export async function GET() {
   try {
-    const { setUuid } = await context.params;
-    const products = await getSetSealed(setUuid);
-    return NextResponse.json(products);
+    const dashboard = await getDashboard();
+    return NextResponse.json(dashboard);
   } catch (error) {
     return handleError(error);
   }

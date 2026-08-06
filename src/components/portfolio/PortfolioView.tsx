@@ -85,10 +85,8 @@ export function PortfolioView() {
             />
           </section>
 
-          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <section className="grid gap-4 sm:grid-cols-2">
             <StatCard label="Total cards" value={String(dashboard.total_cards ?? 0)} />
-            <StatCard label="Autos" value={String(dashboard.autos ?? 0)} />
-            <StatCard label="Rookies" value={String(dashboard.rookies ?? 0)} />
             <StatCard
               label="Priced coverage"
               value={formatPercent(dashboard.priced_coverage)}

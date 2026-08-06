@@ -1,6 +1,6 @@
 # HockeyFrontEnd (Slab Collection)
 
-A Next.js frontend for your [Slab](https://app.slab.dev-jeb.com) trading card collection — built to explore the Slab backend with a hockey card focus. Browse your cards, track portfolio value, research players, compare box expected value, and find the best boxes to chase a player.
+A Next.js frontend for your [Slab](https://app.slab.dev-jeb.com) trading card collection — built to explore the Slab backend with a hockey card focus. Browse your cards, track portfolio value, research players, and drill into individual card pricing.
 
 Your Slab API key stays on the server — the browser never sees it.
 
@@ -127,27 +127,19 @@ Search-engine style player research — find every catalog variant and compare p
 - Expandable **recent comps** (date, price, marketplace, listing title)
 - **Sort** by price (high/low), best confidence, or by set — unpriced variants always sink to the bottom
 
-### Box EV (`/box-ev`)
+### Card detail (`/cards/[uuid]`)
 
-Ranks sealed products by estimated expected value per box.
+Click any card in your collection or player lookup results.
 
-- Scans Slab sets and sealed products on load
-- Ranked list by EV, return %, and payback metrics
-- Click a row for a full breakdown: base card pool, inserts, numbered hits, chase cards
-- Uses print-run and odds data where available
-
-### Pull Odds (`/pull-odds`)
-
-Find the best box to open when chasing a specific player.
-
-- Enter a player; optionally pick a specific card or filter by type
-- Filter by box format (hobby, blaster, mega, retail)
-- Ranked box recommendations with hit probability and EV context
+- Raw and graded pricing with comp ranges and averages
+- **Price history chart** scaled to the card's own movement
+- **Graded uplift** vs raw
+- Recent comps and related **parallels**
 
 ## Architecture
 
 - **Frontend:** Next.js App Router, React, Tailwind CSS
-- **API routes:** Server-side proxy to Slab — `/api/collection`, `/api/portfolio`, `/api/player-lookup`, `/api/box-ev`, `/api/pull-odds/recommend`, etc.
+- **API routes:** Server-side proxy to Slab — `/api/collection`, `/api/portfolio`, `/api/player-lookup`, `/api/cards/[uuid]`, etc.
 - **Auth:** `SLAB_API_KEY` in `.env.local` (never committed)
 
 ## Troubleshooting
@@ -156,7 +148,6 @@ Find the best box to open when chasing a specific player.
 |-------|-----|
 | "Setup required" on every page | Create `.env.local` from `.env.example` and set `SLAB_API_KEY` |
 | Empty collection | Add cards via `slab collection add` or the Slab app |
-| Box EV first load is slow | Scans many sets; subsequent visits use cached API responses within the session |
 | Player lookup is slow | Fetches market + comps per variant in batches; narrow with card filters |
 
 ## License

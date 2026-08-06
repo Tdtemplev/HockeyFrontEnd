@@ -4,12 +4,21 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 
 import { CardListRow } from "@/components/collection/CardListRow";
 import { CardTile } from "@/components/collection/CardTile";
+import { CollectionFilterStats } from "@/components/collection/CollectionFilterStats";
 import { CollectionSetGroups } from "@/components/collection/CollectionSetGroups";
+import { CollectionTeamGroups } from "@/components/collection/CollectionTeamGroups";
 import { SetupPrompt } from "@/components/collection/SetupPrompt";
 import { SummaryBar } from "@/components/collection/SummaryBar";
+import { formatApiDetail } from "@/lib/api-errors";
+import {
+  categoryFetchLimit,
+  categoryQueryParams,
+  filterByCategory,
+  type CollectionCategoryFilter,
+} from "@/lib/collection-filters";
 import { compareCardNumbers, compareLastName } from "@/lib/names";
 import { primarySubjectName } from "@/components/collection/PlayerAvatar";
-import type { CardCopyOut, CollectionResult } from "@/lib/slab/types";
+import type { CardCopyOut, CollectionResult, DashboardStats } from "@/lib/slab/types";
 import { confidenceScore } from "@/lib/slab/confidence";
 
 type SortOption =
@@ -71,22 +80,35 @@ export function CollectionView() {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortOption>("value_desc");
   const [view, setView] = useState<ViewMode>("grid");
+  const [category, setCategory] = useState<CollectionCategoryFilter>("all");
   const [result, setResult] = useState<CollectionResult | null>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [needsSetup, setNeedsSetup] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const loadCollection = useCallback(
-    (search?: string, nextSort?: SortOption) => {
+    (
+      search?: string,
+      nextSort?: SortOption,
+      nextCategory?: CollectionCategoryFilter,
+    ) => {
       startTransition(async () => {
         setError(null);
 
+        const activeCategory = nextCategory ?? category;
         const params = new URLSearchParams();
         if (search) params.set("q", search);
 
         const apiSort = SORT_TO_API[nextSort ?? sort];
         if (apiSort) params.set("sort", apiSort);
-        params.set("limit", "100");
+        params.set("limit", String(categoryFetchLimit(activeCategory)));
+
+        for (const [key, value] of Object.entries(
+          categoryQueryParams(activeCategory),
+        )) {
+          params.set(key, value);
+        }
 
         const response = await fetch(`/api/collection?${params.toString()}`);
 
@@ -96,8 +118,8 @@ export function CollectionView() {
         }
 
         if (!response.ok) {
-          const body = (await response.json()) as { detail?: string };
-          setError(body.detail ?? "Failed to load collection");
+          const body = (await response.json()) as { detail?: unknown };
+          setError(formatApiDetail(body.detail, "Failed to load collection"));
           return;
         }
 
@@ -106,30 +128,47 @@ export function CollectionView() {
         setNeedsSetup(false);
       });
     },
-    [sort],
+    [category, sort],
   );
+
+  useEffect(() => {
+    startTransition(async () => {
+      const response = await fetch("/api/dashboard");
+      if (response.ok) {
+        setStats((await response.json()) as DashboardStats);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     loadCollection();
   }, [loadCollection]);
 
   const items = useMemo(() => {
-    const base = result?.items ?? [];
+    const base = filterByCategory(result?.items ?? [], category);
     if (sort === "value_desc") return base;
     return sortClientSide(base, sort);
-  }, [result?.items, sort]);
+  }, [result?.items, sort, category]);
+
+  const displayTotal =
+    category === "all" ? (result?.total ?? 0) : items.length;
 
   const highlightCardNumber =
     sort === "card_number_asc" || sort === "card_number_desc";
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    loadCollection(query.trim() || undefined);
+    loadCollection(query.trim() || undefined, sort, category);
   }
 
   function handleSortChange(nextSort: SortOption) {
     setSort(nextSort);
-    loadCollection(query.trim() || undefined, nextSort);
+    loadCollection(query.trim() || undefined, nextSort, category);
+  }
+
+  function handleCategoryChange(nextCategory: CollectionCategoryFilter) {
+    setCategory(nextCategory);
+    loadCollection(query.trim() || undefined, sort, nextCategory);
   }
 
   if (needsSetup) {
@@ -175,9 +214,13 @@ export function CollectionView() {
           </label>
 
           <div className="ml-auto flex gap-2">
-            <ViewToggle active={view === "grid"} onClick={() => setView("grid")} label="Grid" />
-            <ViewToggle active={view === "list"} onClick={() => setView("list")} label="List" />
-            <ViewToggle active={view === "sets"} onClick={() => setView("sets")} label="By set" />
+            {category !== "teams" ? (
+              <>
+                <ViewToggle active={view === "grid"} onClick={() => setView("grid")} label="Grid" />
+                <ViewToggle active={view === "list"} onClick={() => setView("list")} label="List" />
+                <ViewToggle active={view === "sets"} onClick={() => setView("sets")} label="By set" />
+              </>
+            ) : null}
           </div>
         </div>
       </form>
@@ -190,9 +233,18 @@ export function CollectionView() {
 
       {result ? (
         <>
-          <SummaryBar summary={result.summary} total={result.total} />
+          <SummaryBar summary={result.summary} total={displayTotal} />
 
-          {items.length > 0 ? (
+          <CollectionFilterStats
+            stats={stats}
+            activeFilter={category}
+            onFilterChange={handleCategoryChange}
+            isPending={isPending}
+          />
+
+          {category === "teams" ? (
+            <CollectionTeamGroups items={items} />
+          ) : items.length > 0 ? (
             view === "sets" ? (
               <CollectionSetGroups items={items} view="list" />
             ) : view === "grid" ? (
@@ -218,7 +270,9 @@ export function CollectionView() {
             )
           ) : (
             <div className="rounded-xl border border-dashed border-slate-700 px-6 py-16 text-center text-slate-400">
-              No cards found. Try a different search or sort.
+              {category === "all"
+                ? "No cards found. Try a different search or sort."
+                : "No cards match this filter."}
             </div>
           )}
         </>

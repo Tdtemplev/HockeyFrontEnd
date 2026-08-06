@@ -6,17 +6,15 @@ import { usePathname } from "next/navigation";
 const links = [
   { href: "/", label: "Collection" },
   { href: "/portfolio", label: "Portfolio" },
+  { href: "/news", label: "Slab News" },
   { href: "/players", label: "Player Lookup" },
-  { href: "/box-ev", label: "Box EV" },
-  { href: "/pull-odds", label: "Pull Odds" },
 ];
 
 const titles: Record<string, string> = {
   "/": "My Repository",
   "/portfolio": "Portfolio",
+  "/news": "Slab News",
   "/players": "Player Lookup",
-  "/box-ev": "Box EV",
-  "/pull-odds": "Pull Odds",
 };
 
 export function SiteHeader() {

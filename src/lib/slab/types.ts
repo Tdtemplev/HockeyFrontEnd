@@ -83,12 +83,16 @@ export interface CollectionSearchQuery {
   q?: string | null;
   subject?: string | null;
   card_number?: string | null;
+  auto?: boolean;
+  rookie?: boolean;
+  is_numbered?: boolean;
+  graded?: boolean;
+  team?: string | null;
   limit?: number;
   offset?: number;
   status?: string[] | null;
   sort?: string | null;
   serial?: number | null;
-  is_numbered?: boolean | null;
 }
 
 export interface SetOut {
@@ -264,6 +268,7 @@ export interface DashboardStats {
   autos?: number;
   rookies?: number;
   numbered?: number;
+  teams?: number;
   graded_count?: number;
   raw_count?: number;
 }
@@ -295,4 +300,22 @@ export interface CardPriceHistory {
   end_date: string;
   interval: string;
   points: CardPricePoint[];
+}
+
+export interface CatalogStats {
+  total_sets?: number | null;
+  total_cards?: number | null;
+  priced_cards?: number | null;
+  sales_90d?: number | null;
+}
+
+export interface TickerItem {
+  kind: string;
+  icon: string;
+  text: string;
+}
+
+export interface CommunityBoard {
+  ticker?: TickerItem[];
+  catalog?: CatalogStats | null;
 }

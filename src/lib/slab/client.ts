@@ -1,4 +1,5 @@
 import { requireSlabConfig } from "./config";
+import { formatApiDetail } from "@/lib/api-errors";
 import type {
   CardComps,
   CardMarket,
@@ -9,10 +10,12 @@ import type {
   CardSearchResult,
   CollectionResult,
   CollectionSearchQuery,
+  CommunityBoard,
   DashboardStats,
   MeOut,
   PortfolioHistory,
   SealedProductOut,
+  SetOut,
   SetSearchQuery,
   SetSearchResult,
   SlabError,
@@ -46,8 +49,8 @@ async function slabFetch<T>(
   if (!response.ok) {
     let detail = response.statusText;
     try {
-      const body = (await response.json()) as SlabError;
-      detail = body.detail ?? detail;
+      const body = (await response.json()) as { detail?: unknown };
+      detail = formatApiDetail(body.detail, detail);
     } catch {
       // ignore parse errors
     }
@@ -203,6 +206,49 @@ export async function getPortfolioHistory(
   return slabFetch<PortfolioHistory>(
     `/collectors/${collectorUuid}/portfolio/history?${params.toString()}`,
   );
+}
+
+export async function getCommunityBoard(limit = 20): Promise<CommunityBoard> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  return slabFetch<CommunityBoard>(`/community?${params.toString()}`);
+}
+
+const SETS_PAGE_SIZE = 200;
+const COLLECTION_PAGE_SIZE = 100;
+
+export async function fetchAllSets(): Promise<SetOut[]> {
+  const sets: SetOut[] = [];
+  let offset = 0;
+  let total = Infinity;
+
+  while (offset < total) {
+    const page = await searchSets({ limit: SETS_PAGE_SIZE, offset });
+    total = page.total;
+    sets.push(...(page.items ?? []));
+    offset += SETS_PAGE_SIZE;
+    if (!page.items?.length) break;
+  }
+
+  return sets;
+}
+
+export async function fetchAllCollection(): Promise<CardCopyOut[]> {
+  const copies: CardCopyOut[] = [];
+  let offset = 0;
+  let total = Infinity;
+
+  while (offset < total) {
+    const page = await searchCollection({
+      limit: COLLECTION_PAGE_SIZE,
+      offset,
+    });
+    total = page.total;
+    copies.push(...(page.items ?? []));
+    offset += COLLECTION_PAGE_SIZE;
+    if (!page.items?.length) break;
+  }
+
+  return copies;
 }
 
 export { SlabApiError };

@@ -33,9 +33,58 @@ export function groupByTeam(
     }
   }
 
-  return [...groups.entries()]
-    .map(([team, copies]) => ({ team, copies }))
-    .sort((a, b) => a.team.localeCompare(b.team));
+  return [...groups.entries()].map(([team, copies]) => ({ team, copies }));
+}
+
+export type TeamGroupSort = "players_desc" | "cards_desc" | "alpha";
+
+export function countUniqueTeamPlayers(
+  copies: CardCopyOut[],
+  team: string,
+): number {
+  const names = new Set<string>();
+
+  for (const copy of copies) {
+    for (const subject of copy.card?.subjects ?? []) {
+      if (subject.team?.trim() === team && subject.name?.trim()) {
+        names.add(subject.name.trim());
+      }
+    }
+  }
+
+  return names.size;
+}
+
+export interface TeamGroup {
+  team: string;
+  copies: CardCopyOut[];
+  playerCount: number;
+}
+
+export function sortTeamGroups(
+  groups: { team: string; copies: CardCopyOut[] }[],
+  sort: TeamGroupSort,
+): TeamGroup[] {
+  const withCounts = groups.map((group) => ({
+    ...group,
+    playerCount: countUniqueTeamPlayers(group.copies, group.team),
+  }));
+
+  return withCounts.sort((a, b) => {
+    if (sort === "players_desc") {
+      if (b.playerCount !== a.playerCount) return b.playerCount - a.playerCount;
+      return a.team.localeCompare(b.team);
+    }
+
+    if (sort === "cards_desc") {
+      if (b.copies.length !== a.copies.length) {
+        return b.copies.length - a.copies.length;
+      }
+      return a.team.localeCompare(b.team);
+    }
+
+    return a.team.localeCompare(b.team);
+  });
 }
 
 export function filterByCategory(

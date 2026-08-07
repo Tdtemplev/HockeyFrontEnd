@@ -4,7 +4,11 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 
 import { CardListRow } from "@/components/collection/CardListRow";
 import { TeamLogo } from "@/components/collection/TeamLogo";
-import { groupByTeam } from "@/lib/collection-filters";
+import {
+  groupByTeam,
+  sortTeamGroups,
+  type TeamGroupSort,
+} from "@/lib/collection-filters";
 import type { CardCopyOut } from "@/lib/slab/types";
 
 interface CollectionTeamGroupsProps {
@@ -13,12 +17,13 @@ interface CollectionTeamGroupsProps {
 
 interface TeamTileProps {
   team: string;
+  playerCount: number;
   count: number;
   expanded: boolean;
   onToggle: () => void;
 }
 
-function TeamTile({ team, count, expanded, onToggle }: TeamTileProps) {
+function TeamTile({ team, playerCount, count, expanded, onToggle }: TeamTileProps) {
   return (
     <button
       type="button"
@@ -43,9 +48,13 @@ function TeamTile({ team, count, expanded, onToggle }: TeamTileProps) {
         <div className="flex items-end justify-between gap-2">
           <div>
             <p className="text-[10px] uppercase tracking-wider text-slate-500">
-              Cards owned
+              Players · Cards
             </p>
-            <p className="text-lg font-semibold text-white">{count}</p>
+            <p className="text-lg font-semibold text-white">
+              {playerCount}
+              <span className="mx-1 text-sm font-normal text-slate-500">·</span>
+              {count}
+            </p>
           </div>
           <span className="text-xs text-sky-400">
             {expanded ? "Hide" : "Show"}
@@ -82,7 +91,11 @@ function rowEndIndex(index: number, columns: number, total: number): number {
 }
 
 export function CollectionTeamGroups({ items }: CollectionTeamGroupsProps) {
-  const groups = useMemo(() => groupByTeam(items), [items]);
+  const [teamSort, setTeamSort] = useState<TeamGroupSort>("players_desc");
+  const groups = useMemo(
+    () => sortTeamGroups(groupByTeam(items), teamSort),
+    [items, teamSort],
+  );
   const columns = useTeamGridColumns();
   const [expandedTeam, setExpandedTeam] = useState<string | null>(null);
   const tileRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -106,6 +119,10 @@ export function CollectionTeamGroups({ items }: CollectionTeamGroupsProps) {
       return next;
     });
   }
+
+  useEffect(() => {
+    setExpandedTeam(null);
+  }, [teamSort]);
 
   useEffect(() => {
     if (!expandedTeam) return;
@@ -138,8 +155,29 @@ export function CollectionTeamGroups({ items }: CollectionTeamGroupsProps) {
       : -1;
 
   return (
-    <div className="grid items-start gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-      {groups.map(({ team, copies }, index) => {
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-slate-400">
+          {groups.length} team{groups.length === 1 ? "" : "s"} in your collection
+        </p>
+        <label className="flex items-center gap-2 text-sm text-slate-400">
+          <span>Sort teams</span>
+          <select
+            value={teamSort}
+            onChange={(event) =>
+              setTeamSort(event.target.value as TeamGroupSort)
+            }
+            className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-white"
+          >
+            <option value="players_desc">Most players</option>
+            <option value="cards_desc">Most cards</option>
+            <option value="alpha">Team name (A–Z)</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="grid items-start gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+      {groups.map(({ team, copies, playerCount }, index) => {
         const expanded = expandedTeam === team;
         const showPanelBelowRow =
           expandedGroup && index === expandedRowEnd;
@@ -155,6 +193,7 @@ export function CollectionTeamGroups({ items }: CollectionTeamGroupsProps) {
             >
               <TeamTile
                 team={team}
+                playerCount={playerCount}
                 count={copies.length}
                 expanded={expanded}
                 onToggle={() => toggleTeam(team)}
@@ -176,6 +215,8 @@ export function CollectionTeamGroups({ items }: CollectionTeamGroupsProps) {
                       {expandedGroup.team}
                     </h3>
                     <p className="text-sm text-slate-400">
+                      {expandedGroup.playerCount} player
+                      {expandedGroup.playerCount === 1 ? "" : "s"} ·{" "}
                       {expandedGroup.copies.length} card
                       {expandedGroup.copies.length === 1 ? "" : "s"}
                     </p>
@@ -199,6 +240,7 @@ export function CollectionTeamGroups({ items }: CollectionTeamGroupsProps) {
           </Fragment>
         );
       })}
+      </div>
     </div>
   );
 }

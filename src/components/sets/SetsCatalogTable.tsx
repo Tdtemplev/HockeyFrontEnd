@@ -1,8 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
-
-import { setLabel } from "@/lib/set-label";
+import { formatPricedPercent } from "@/lib/set-lookup-sort";
 import { formatCurrency } from "@/lib/slab/format";
 import type { SetOut } from "@/lib/slab/types";
 
@@ -15,18 +13,7 @@ export function SetsCatalogTable({
   sets,
   newSetUuids = new Set(),
 }: SetsCatalogTableProps) {
-  const sorted = useMemo(
-    () =>
-      [...sets].sort((a, b) => {
-        const yearA = a.year ?? 0;
-        const yearB = b.year ?? 0;
-        if (yearB !== yearA) return yearB - yearA;
-        return setLabel(a).localeCompare(setLabel(b));
-      }),
-    [sets],
-  );
-
-  if (!sorted.length) {
+  if (!sets.length) {
     return (
       <p className="py-8 text-center text-sm text-slate-400">No sets match your search.</p>
     );
@@ -44,12 +31,13 @@ export function SetsCatalogTable({
             <th className="pb-3 pr-4 font-medium">Sport</th>
             <th className="pb-3 pr-4 font-medium text-right">Cards</th>
             <th className="pb-3 pr-4 font-medium text-right">Priced</th>
+            <th className="pb-3 pr-4 font-medium text-right">% Priced</th>
             <th className="pb-3 pr-4 font-medium text-right">90d sales</th>
             <th className="pb-3 font-medium text-right">Box</th>
           </tr>
         </thead>
         <tbody>
-          {sorted.map((set) => {
+          {sets.map((set) => {
             const isNew = newSetUuids.has(set.uuid);
             return (
               <tr
@@ -79,6 +67,9 @@ export function SetsCatalogTable({
                 </td>
                 <td className="py-3 pr-4 text-right text-slate-300">
                   {set.priced_count ?? "—"}
+                </td>
+                <td className="py-3 pr-4 text-right text-slate-300">
+                  {formatPricedPercent(set)}
                 </td>
                 <td className="py-3 pr-4 text-right text-slate-300">
                   {set.sales_90d ?? "—"}

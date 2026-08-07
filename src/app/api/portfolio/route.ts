@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { getDashboard, getPortfolioHistory, SlabApiError } from "@/lib/slab/client";
+import { buildTopSetsByValue } from "@/lib/portfolio-sets";
+import {
+  fetchAllCollection,
+  getDashboard,
+  getPortfolioHistory,
+  SlabApiError,
+} from "@/lib/slab/client";
 
 function handleError(error: unknown) {
   if (error instanceof SlabApiError) {
@@ -14,12 +20,15 @@ function handleError(error: unknown) {
 
 export async function GET() {
   try {
-    const [dashboard, history] = await Promise.all([
+    const [dashboard, history, copies] = await Promise.all([
       getDashboard(),
       getPortfolioHistory(90),
+      fetchAllCollection(),
     ]);
 
-    return NextResponse.json({ dashboard, history });
+    const topSetsByValue = buildTopSetsByValue(copies);
+
+    return NextResponse.json({ dashboard, history, topSetsByValue });
   } catch (error) {
     return handleError(error);
   }

@@ -9,11 +9,13 @@ import {
   formatPercent,
   formatSignedCurrency,
 } from "@/lib/slab/format";
+import type { SetPortfolioSummary } from "@/lib/portfolio-sets";
 import type { DashboardStats, PortfolioHistory } from "@/lib/slab/types";
 
 export function PortfolioView() {
   const [dashboard, setDashboard] = useState<DashboardStats | null>(null);
   const [history, setHistory] = useState<PortfolioHistory | null>(null);
+  const [topSetsByValue, setTopSetsByValue] = useState<SetPortfolioSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [needsSetup, setNeedsSetup] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -37,10 +39,12 @@ export function PortfolioView() {
       const data = (await response.json()) as {
         dashboard: DashboardStats;
         history: PortfolioHistory;
+        topSetsByValue?: SetPortfolioSummary[];
       };
 
       setDashboard(data.dashboard);
       setHistory(data.history);
+      setTopSetsByValue(data.topSetsByValue ?? []);
     });
   }, []);
 
@@ -129,16 +133,30 @@ export function PortfolioView() {
 
             <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
               <h2 className="text-lg font-semibold text-white">Top sets</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Sorted by comp-based set value
+              </p>
               <div className="mt-4 space-y-3">
-                {(dashboard.top_sets ?? []).slice(0, 10).map((set) => (
-                  <div
-                    key={set.label}
-                    className="flex items-center justify-between border-b border-slate-800 pb-3 last:border-0"
-                  >
-                    <p className="text-white">{set.label}</p>
-                    <p className="text-slate-400">{set.count} cards</p>
-                  </div>
-                ))}
+                {topSetsByValue.length ? (
+                  topSetsByValue.map((set) => (
+                    <div
+                      key={set.label}
+                      className="flex items-center justify-between gap-4 border-b border-slate-800 pb-3 last:border-0"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-white">{set.label}</p>
+                        <p className="text-sm text-slate-400">
+                          {set.count} card{set.count === 1 ? "" : "s"}
+                        </p>
+                      </div>
+                      <p className="shrink-0 font-medium text-white">
+                        {formatCurrency(String(set.value))}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-slate-400">No set data available.</p>
+                )}
               </div>
             </section>
           </div>

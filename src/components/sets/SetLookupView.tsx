@@ -6,6 +6,10 @@ import { SetupPrompt } from "@/components/collection/SetupPrompt";
 import { SetsCatalogTable } from "@/components/sets/SetsCatalogTable";
 import { setSearchText } from "@/lib/set-label";
 import {
+  sortCatalogSets,
+  type SetLookupSort,
+} from "@/lib/set-lookup-sort";
+import {
   diffNewSets,
   loadSetsSnapshot,
 } from "@/lib/slab-news-snapshot";
@@ -14,6 +18,7 @@ import type { SetOut } from "@/lib/slab/types";
 export function SetLookupView() {
   const [sets, setSets] = useState<SetOut[]>([]);
   const [query, setQuery] = useState("");
+  const [setSort, setSetSort] = useState<SetLookupSort>("year_desc");
   const [error, setError] = useState<string | null>(null);
   const [needsSetup, setNeedsSetup] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -42,10 +47,11 @@ export function SetLookupView() {
 
   const filteredSets = useMemo(() => {
     const trimmed = query.trim().toLowerCase();
-    if (!trimmed) return sets;
-
-    return sets.filter((set) => setSearchText(set).includes(trimmed));
-  }, [sets, query]);
+    const matched = trimmed
+      ? sets.filter((set) => setSearchText(set).includes(trimmed))
+      : sets;
+    return sortCatalogSets(matched, setSort);
+  }, [sets, query, setSort]);
 
   const newSetUuids = useMemo(() => {
     const snapshot = loadSetsSnapshot();
@@ -71,6 +77,22 @@ export function SetLookupView() {
           placeholder="Search sets…"
           className="w-full max-w-md rounded-lg border border-slate-700 bg-slate-900/60 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-sky-500/50 focus:outline-none focus:ring-1 focus:ring-sky-500/30"
         />
+        <label className="flex items-center gap-2 text-sm text-slate-400">
+          <span>Sort</span>
+          <select
+            value={setSort}
+            onChange={(event) =>
+              setSetSort(event.target.value as SetLookupSort)
+            }
+            className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-white"
+          >
+            <option value="year_desc">Year (newest)</option>
+            <option value="year_asc">Year (oldest)</option>
+            <option value="cards_desc">Most cards</option>
+            <option value="priced_desc">Most priced cards</option>
+            <option value="pct_priced_desc">% Priced</option>
+          </select>
+        </label>
         <span className="text-sm text-slate-400">
           {filteredSets.length} of {sets.length} sets
         </span>

@@ -5,7 +5,8 @@ export type CollectionCategoryFilter =
   | "auto"
   | "rookie"
   | "numbered"
-  | "teams";
+  | "teams"
+  | "by_set";
 
 export function copyTeams(copy: CardCopyOut): string[] {
   const teams =
@@ -87,12 +88,88 @@ export function sortTeamGroups(
   });
 }
 
+export function copySetName(copy: CardCopyOut): string {
+  return copy.card?.set_name?.trim() || "Unknown set";
+}
+
+export function copyHasSet(copy: CardCopyOut): boolean {
+  return Boolean(copy.card?.set_name?.trim());
+}
+
+export function groupBySet(
+  items: CardCopyOut[],
+): { setName: string; copies: CardCopyOut[] }[] {
+  const groups = new Map<string, CardCopyOut[]>();
+
+  for (const copy of items) {
+    const setName = copySetName(copy);
+    const current = groups.get(setName) ?? [];
+    current.push(copy);
+    groups.set(setName, current);
+  }
+
+  return [...groups.entries()].map(([setName, copies]) => ({ setName, copies }));
+}
+
+export function setGroupValue(copies: CardCopyOut[]): number {
+  return copies.reduce(
+    (sum, copy) => sum + Number(copy.market?.fair_market_value ?? 0),
+    0,
+  );
+}
+
+export type SetGroupSort = "cards_desc" | "value_desc" | "alpha";
+
+export interface SetGroup {
+  setName: string;
+  copies: CardCopyOut[];
+  cardCount: number;
+  totalValue: number;
+  season?: string | null;
+  year?: number | null;
+  brand?: string | null;
+}
+
+export function sortSetGroups(
+  groups: { setName: string; copies: CardCopyOut[] }[],
+  sort: SetGroupSort,
+): SetGroup[] {
+  const enriched = groups.map((group) => {
+    const sample = group.copies[0]?.card;
+    return {
+      ...group,
+      cardCount: group.copies.length,
+      totalValue: setGroupValue(group.copies),
+      season: sample?.season,
+      year: sample?.year,
+      brand: sample?.brand,
+    };
+  });
+
+  return enriched.sort((a, b) => {
+    if (sort === "value_desc") {
+      if (b.totalValue !== a.totalValue) return b.totalValue - a.totalValue;
+      return a.setName.localeCompare(b.setName);
+    }
+
+    if (sort === "cards_desc") {
+      if (b.cardCount !== a.cardCount) return b.cardCount - a.cardCount;
+      return a.setName.localeCompare(b.setName);
+    }
+
+    return a.setName.localeCompare(b.setName);
+  });
+}
+
 export function filterByCategory(
   items: CardCopyOut[],
   category: CollectionCategoryFilter,
 ): CardCopyOut[] {
   if (category === "teams") {
     return items.filter(copyHasTeam);
+  }
+  if (category === "by_set") {
+    return items.filter(copyHasSet);
   }
   return items;
 }

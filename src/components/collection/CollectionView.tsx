@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import { CardListRow } from "@/components/collection/CardListRow";
 import { CardTile } from "@/components/collection/CardTile";
 import { CollectionFilterStats } from "@/components/collection/CollectionFilterStats";
-import { CollectionSetGroups } from "@/components/collection/CollectionSetGroups";
+import { CollectionSetBanners } from "@/components/collection/CollectionSetBanners";
 import { CollectionTeamGroups } from "@/components/collection/CollectionTeamGroups";
 import { SetupPrompt } from "@/components/collection/SetupPrompt";
 import { SummaryBar } from "@/components/collection/SummaryBar";
@@ -28,7 +28,7 @@ type SortOption =
   | "card_number_desc"
   | "alpha_asc";
 
-type ViewMode = "grid" | "list" | "sets";
+type ViewMode = "grid" | "list";
 
 const SORT_TO_API: Partial<Record<SortOption, string>> = {
   value_desc: "-fmv",
@@ -150,6 +150,14 @@ export function CollectionView() {
     return sortClientSide(base, sort);
   }, [result?.items, sort, category]);
 
+  const uniqueSetCount = useMemo(() => {
+    return new Set(
+      (result?.items ?? [])
+        .map((copy) => copy.card?.set_name?.trim())
+        .filter(Boolean),
+    ).size;
+  }, [result?.items]);
+
   const displayTotal =
     category === "all" ? (result?.total ?? 0) : items.length;
 
@@ -214,11 +222,10 @@ export function CollectionView() {
           </label>
 
           <div className="ml-auto flex gap-2">
-            {category !== "teams" ? (
+            {category !== "teams" && category !== "by_set" ? (
               <>
                 <ViewToggle active={view === "grid"} onClick={() => setView("grid")} label="Grid" />
                 <ViewToggle active={view === "list"} onClick={() => setView("list")} label="List" />
-                <ViewToggle active={view === "sets"} onClick={() => setView("sets")} label="By set" />
               </>
             ) : null}
           </div>
@@ -240,14 +247,15 @@ export function CollectionView() {
             activeFilter={category}
             onFilterChange={handleCategoryChange}
             isPending={isPending}
+            setCount={uniqueSetCount}
           />
 
           {category === "teams" ? (
             <CollectionTeamGroups items={items} />
+          ) : category === "by_set" ? (
+            <CollectionSetBanners items={items} />
           ) : items.length > 0 ? (
-            view === "sets" ? (
-              <CollectionSetGroups items={items} view="list" />
-            ) : view === "grid" ? (
+            view === "grid" ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {items.map((copy) => (
                   <CardTile

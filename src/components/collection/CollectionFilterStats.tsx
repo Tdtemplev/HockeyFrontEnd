@@ -7,6 +7,7 @@ const FILTER_LABELS: Record<CollectionCategoryFilter, string> = {
   rookie: "Rookies",
   numbered: "Numbered",
   teams: "Team cards",
+  by_set: "Sets",
 };
 
 interface CollectionFilterStatsProps {
@@ -14,6 +15,7 @@ interface CollectionFilterStatsProps {
   activeFilter: CollectionCategoryFilter;
   onFilterChange: (filter: CollectionCategoryFilter) => void;
   isPending?: boolean;
+  setCount?: number;
 }
 
 interface StatItem {
@@ -23,7 +25,10 @@ interface StatItem {
   hint?: string;
 }
 
-function buildStatItems(stats: DashboardStats | null): StatItem[] {
+function buildStatItems(
+  stats: DashboardStats | null,
+  setCount?: number,
+): StatItem[] {
   return [
     { id: "auto", label: "Autos", value: stats?.autos ?? 0 },
     { id: "rookie", label: "Rookies", value: stats?.rookies ?? 0 },
@@ -37,6 +42,12 @@ function buildStatItems(stats: DashboardStats | null): StatItem[] {
       label: "Teams",
       value: stats?.teams ?? 0,
     },
+    {
+      id: "by_set",
+      label: "Sets",
+      value: setCount ?? 0,
+      hint: "Browse by product",
+    },
   ];
 }
 
@@ -45,8 +56,9 @@ export function CollectionFilterStats({
   activeFilter,
   onFilterChange,
   isPending = false,
+  setCount,
 }: CollectionFilterStatsProps) {
-  const items = buildStatItems(stats);
+  const items = buildStatItems(stats, setCount);
 
   function handleClick(id: CollectionCategoryFilter) {
     onFilterChange(activeFilter === id ? "all" : id);
@@ -78,7 +90,7 @@ export function CollectionFilterStats({
         ) : null}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {items.map((item) => {
           const active = activeFilter === item.id;
           return (

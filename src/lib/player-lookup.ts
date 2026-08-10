@@ -99,17 +99,38 @@ function pickRawPoint(points: PricePointOut[]): PricePointOut | null {
   return points.length ? points[0] : null;
 }
 
+function matchesCardQuery(card: CardOut, query: string): boolean {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+
+  const parts = [
+    card.set_name,
+    card.subset,
+    card.finish,
+    card.card_number,
+    card.release_set_name,
+    card.brand,
+    card.season,
+    ...(card.attributes?.flatMap((attribute) => [attribute.name, attribute.value]) ??
+      []),
+  ];
+
+  return parts.some(
+    (part) => typeof part === "string" && part.toLowerCase().includes(needle),
+  );
+}
+
 async function fetchAllPlayerCards(
   request: PlayerLookupRequest,
 ): Promise<{ cards: CardOut[]; total: number; truncated: boolean }> {
+  const narrowQuery = request.q?.trim();
   const cards: CardOut[] = [];
   let offset = 0;
-  let total = Infinity;
+  let catalogTotal = Infinity;
 
-  while (offset < total && cards.length < MAX_VARIANTS) {
+  while (offset < catalogTotal && cards.length < MAX_VARIANTS) {
     const page = await searchCards({
       subject: request.subject,
-      q: request.q,
       auto: request.auto,
       rookie: request.rookie,
       is_numbered: request.is_numbered,
@@ -117,16 +138,31 @@ async function fetchAllPlayerCards(
       offset,
     });
 
-    total = page.total;
-    cards.push(...(page.items ?? []));
+    catalogTotal = page.total;
+    const items = page.items ?? [];
+
+    if (narrowQuery) {
+      for (const card of items) {
+        if (matchesCardQuery(card, narrowQuery)) {
+          cards.push(card);
+          if (cards.length >= MAX_VARIANTS) break;
+        }
+      }
+    } else {
+      cards.push(...items);
+    }
+
     offset += PAGE_SIZE;
-    if (!page.items?.length) break;
+    if (!items.length) break;
   }
+
+  const truncated =
+    cards.length >= MAX_VARIANTS || offset < catalogTotal;
 
   return {
     cards,
-    total,
-    truncated: total > cards.length,
+    total: narrowQuery ? cards.length : catalogTotal,
+    truncated,
   };
 }
 

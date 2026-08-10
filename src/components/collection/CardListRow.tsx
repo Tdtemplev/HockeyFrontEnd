@@ -17,12 +17,14 @@ interface CardListRowProps {
   copy: CardCopyOut;
   highlightChecklist?: boolean;
   highlightSerial?: boolean;
+  ownedTotal?: number;
 }
 
 export function CardListRow({
   copy,
   highlightChecklist = false,
   highlightSerial = false,
+  ownedTotal,
 }: CardListRowProps) {
   const card = copy.card;
   const fmv = copy.market?.fair_market_value;
@@ -39,7 +41,14 @@ export function CardListRow({
       <PlayerAvatar name={playerName} size="sm" />
 
       <div>
-        <p className="font-medium text-white">{cardTitle(card)}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-medium text-white">{cardTitle(card)}</p>
+          {ownedTotal && ownedTotal > 1 ? (
+            <span className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium text-emerald-200">
+              ×{ownedTotal}
+            </span>
+          ) : null}
+        </div>
         <p className="mt-1 text-sm text-slate-400">{cardSubtitle(card)}</p>
         <p className="mt-1 text-xs text-slate-500">{gradeLabel(copy)}</p>
       </div>

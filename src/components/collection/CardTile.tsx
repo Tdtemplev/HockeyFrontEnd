@@ -17,6 +17,7 @@ interface CardTileProps {
   copy: CardCopyOut;
   highlightChecklist?: boolean;
   highlightSerial?: boolean;
+  ownedTotal?: number;
 }
 
 function gainTone(value?: string | null): string {
@@ -31,6 +32,7 @@ export function CardTile({
   copy,
   highlightChecklist = false,
   highlightSerial = false,
+  ownedTotal,
 }: CardTileProps) {
   const card = copy.card;
   const fmv = copy.market?.fair_market_value;
@@ -48,9 +50,16 @@ export function CardTile({
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.08),transparent_55%)]" />
         <div className="relative flex h-full flex-col justify-between">
           <div className="flex items-start justify-between gap-2">
-            <span className="rounded-full bg-slate-950/70 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-sky-300">
-              {gradeLabel(copy)}
-            </span>
+            <div className="flex flex-wrap gap-1.5">
+              <span className="rounded-full bg-slate-950/70 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-sky-300">
+                {gradeLabel(copy)}
+              </span>
+              {ownedTotal && ownedTotal > 1 ? (
+                <span className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium text-emerald-200">
+                  ×{ownedTotal}
+                </span>
+              ) : null}
+            </div>
             {checklist ? (
               <span
                 className={`rounded-full bg-slate-950/70 px-2 py-0.5 font-mono text-[10px] ${

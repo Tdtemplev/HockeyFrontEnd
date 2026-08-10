@@ -233,22 +233,39 @@ export async function fetchAllSets(): Promise<SetOut[]> {
 }
 
 export async function fetchAllCollection(): Promise<CardCopyOut[]> {
+  const result = await fetchCollection({});
+  return result.items ?? [];
+}
+
+export async function fetchCollection(
+  query: CollectionSearchQuery = {},
+): Promise<CollectionResult> {
+  const { limit: _limit, offset: _offset, ...filters } = query;
   const copies: CardCopyOut[] = [];
   let offset = 0;
   let total = Infinity;
+  let summary: CollectionResult["summary"];
 
   while (offset < total) {
     const page = await searchCollection({
+      ...filters,
       limit: COLLECTION_PAGE_SIZE,
       offset,
     });
     total = page.total;
+    summary = page.summary ?? summary;
     copies.push(...(page.items ?? []));
     offset += COLLECTION_PAGE_SIZE;
     if (!page.items?.length) break;
   }
 
-  return copies;
+  return {
+    total,
+    limit: copies.length,
+    offset: 0,
+    items: copies,
+    summary,
+  };
 }
 
 export { SlabApiError };

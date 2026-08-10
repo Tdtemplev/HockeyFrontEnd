@@ -4,19 +4,17 @@ import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 
 import { CardPriceChart } from "@/components/card-detail/CardPriceChart";
+import { OwnedCopyRow } from "@/components/collection/OwnedCopyRow";
 import { SetupPrompt } from "@/components/collection/SetupPrompt";
 import { PlayerAvatar, primarySubjectName } from "@/components/collection/PlayerAvatar";
 import { PriceConfidenceBadge } from "@/components/collection/PriceConfidenceBadge";
-import type { CardDetailResult } from "@/lib/card-detail";
 import {
   cardSubtitle,
   cardTitle,
   formatCurrency,
   formatSignedCurrency,
-  gradeLabel,
-  ownedSerialLabel,
 } from "@/lib/slab/format";
-import type { CardCopyOut } from "@/lib/slab/types";
+import type { CardDetailResult } from "@/lib/card-detail";
 
 function formatRange(low?: string | null, high?: string | null): string {
   if (!low && !high) return "—";
@@ -28,26 +26,13 @@ interface CardDetailViewProps {
   cardUuid: string;
 }
 
-function OwnedCopyRow({ copy }: { copy: CardCopyOut }) {
+function OwnedBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800/80 bg-slate-950/30 px-4 py-3">
-      <div>
-        <p className="font-medium text-white">{gradeLabel(copy)}</p>
-        <p className="mt-1 text-sm text-slate-400">
-          {ownedSerialLabel(copy) ? `Serial ${ownedSerialLabel(copy)}` : "Unnumbered"}
-          {copy.quantity > 1 ? ` · Qty ${copy.quantity}` : ""}
-        </p>
-      </div>
-      <div className="text-right">
-        <p className="font-medium text-white">
-          {formatCurrency(copy.market?.fair_market_value)}
-        </p>
-        <p className="text-sm text-slate-400">
-          Cost {formatCurrency(copy.cost_basis)} ·{" "}
-          {formatSignedCurrency(copy.market?.unrealized_gain_loss)}
-        </p>
-      </div>
-    </div>
+    <span className="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-400/10 px-2.5 py-0.5 text-xs font-medium text-emerald-200">
+      Owned{count > 1 ? ` · ${count}` : ""}
+    </span>
   );
 }
 
@@ -85,6 +70,12 @@ export function CardDetailView({ cardUuid }: CardDetailViewProps) {
   if (needsSetup) return <SetupPrompt />;
 
   const market = detail?.market;
+  const ownedCount = detail
+    ? detail.ownedCopies.reduce(
+        (sum, copy) => sum + Math.max(copy.quantity, 1),
+        0,
+      )
+    : 0;
   const playerName = primarySubjectName(
     market?.subjects.map((name) => ({ name })) ?? [],
   );
@@ -105,17 +96,20 @@ export function CardDetailView({ cardUuid }: CardDetailViewProps) {
               <p className="text-xs uppercase tracking-[0.25em] text-sky-400">
                 {market.set_name ?? "Catalog card"}
               </p>
-              <h2 className="mt-2 text-3xl font-semibold text-white">
-                {cardTitle({
-                  uuid: cardUuid,
-                  card_number: market.card_number,
-                  subjects: market.subjects.map((name) => ({ name })),
-                  set_name: market.set_name,
-                  subset: market.subset,
-                  finish: market.finish,
-                  attributes: [],
-                })}
-              </h2>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <h2 className="text-3xl font-semibold text-white">
+                  {cardTitle({
+                    uuid: cardUuid,
+                    card_number: market.card_number,
+                    subjects: market.subjects.map((name) => ({ name })),
+                    set_name: market.set_name,
+                    subset: market.subset,
+                    finish: market.finish,
+                    attributes: [],
+                  })}
+                </h2>
+                <OwnedBadge count={ownedCount} />
+              </div>
               <p className="mt-2 text-slate-400">
                 {cardSubtitle({
                   uuid: cardUuid,
@@ -304,13 +298,18 @@ export function CardDetailView({ cardUuid }: CardDetailViewProps) {
             {detail.parallels.length === 1 ? "" : "s"}
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {detail.parallels.map(({ card, headlineFmv }) => (
+            {detail.parallels.map(({ card, headlineFmv, ownedCount: parallelOwned }) => (
               <Link
                 key={card.uuid}
                 href={`/cards/${card.uuid}`}
-                className="rounded-xl border border-slate-800/80 bg-slate-950/30 p-4 transition hover:border-sky-500/40 hover:bg-slate-950/50"
+                className="relative rounded-xl border border-slate-800/80 bg-slate-950/30 p-4 transition hover:border-sky-500/40 hover:bg-slate-950/50"
               >
-                <p className="font-medium text-white">{cardTitle(card)}</p>
+                {parallelOwned > 0 ? (
+                  <span className="absolute right-3 top-3">
+                    <OwnedBadge count={parallelOwned} />
+                  </span>
+                ) : null}
+                <p className="pr-20 font-medium text-white">{cardTitle(card)}</p>
                 <p className="mt-1 text-sm text-slate-400">{cardSubtitle(card)}</p>
                 <p className="mt-3 text-lg font-semibold text-sky-300">
                   {formatCurrency(headlineFmv)}

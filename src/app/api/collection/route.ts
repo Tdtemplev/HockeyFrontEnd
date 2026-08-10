@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { searchCollection, SlabApiError } from "@/lib/slab/client";
+import { fetchCollection, searchCollection, SlabApiError } from "@/lib/slab/client";
 import type { CollectionSearchQuery } from "@/lib/slab/types";
 
 function handleError(error: unknown) {
@@ -32,7 +32,10 @@ export async function GET(request: NextRequest) {
   };
 
   try {
-    const result = await searchCollection(query);
+    const fetchAll = params.get("all") === "true";
+    const result = fetchAll
+      ? await fetchCollection(query)
+      : await searchCollection(query);
     return NextResponse.json(result);
   } catch (error) {
     return handleError(error);

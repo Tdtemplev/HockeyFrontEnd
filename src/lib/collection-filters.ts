@@ -1,4 +1,6 @@
-import type { CardCopyOut } from "@/lib/slab/types";
+import { primarySubjectName } from "@/components/collection/PlayerAvatar";
+import { compareLastName } from "@/lib/names";
+import type { CardCopyOut, CardOut } from "@/lib/slab/types";
 
 export type CollectionCategoryFilter =
   | "all"
@@ -6,7 +8,8 @@ export type CollectionCategoryFilter =
   | "rookie"
   | "numbered"
   | "teams"
-  | "by_set";
+  | "by_set"
+  | "duplicates";
 
 export function copyTeams(copy: CardCopyOut): string[] {
   const teams =
@@ -191,4 +194,83 @@ export function categoryQueryParams(
 
 export function categoryFetchLimit(_category: CollectionCategoryFilter): number {
   return 100;
+}
+
+export function countCopyQuantity(copies: CardCopyOut[]): number {
+  return copies.reduce((sum, copy) => sum + Math.max(copy.quantity, 1), 0);
+}
+
+export interface DuplicateGroup {
+  cardUuid: string;
+  card: CardOut | null;
+  copies: CardCopyOut[];
+  totalCount: number;
+  totalValue: number;
+}
+
+export function groupByCardUuid(items: CardCopyOut[]): DuplicateGroup[] {
+  const groups = new Map<string, CardCopyOut[]>();
+
+  for (const copy of items) {
+    const current = groups.get(copy.card_uuid) ?? [];
+    current.push(copy);
+    groups.set(copy.card_uuid, current);
+  }
+
+  return [...groups.entries()].map(([cardUuid, copies]) => ({
+    cardUuid,
+    card: copies[0]?.card ?? null,
+    copies,
+    totalCount: countCopyQuantity(copies),
+    totalValue: copies.reduce(
+      (sum, copy) => sum + Number(copy.market?.fair_market_value ?? 0),
+      0,
+    ),
+  }));
+}
+
+export function duplicateGroupsOnly(groups: DuplicateGroup[]): DuplicateGroup[] {
+  return groups.filter(
+    (group) => group.copies.length > 1 || group.totalCount > 1,
+  );
+}
+
+export function countDuplicateCards(items: CardCopyOut[]): number {
+  return duplicateGroupsOnly(groupByCardUuid(items)).length;
+}
+
+export function ownedCountByCardUuid(items: CardCopyOut[]): Map<string, number> {
+  const counts = new Map<string, number>();
+
+  for (const group of groupByCardUuid(items)) {
+    counts.set(group.cardUuid, group.totalCount);
+  }
+
+  return counts;
+}
+
+export type DuplicateGroupSort = "copies_desc" | "value_desc" | "alpha";
+
+export function sortDuplicateGroups(
+  groups: DuplicateGroup[],
+  sort: DuplicateGroupSort,
+): DuplicateGroup[] {
+  return [...groups].sort((a, b) => {
+    if (sort === "copies_desc") {
+      if (b.totalCount !== a.totalCount) return b.totalCount - a.totalCount;
+      return b.totalValue - a.totalValue;
+    }
+
+    if (sort === "value_desc") {
+      if (b.totalValue !== a.totalValue) return b.totalValue - a.totalValue;
+      return b.totalCount - a.totalCount;
+    }
+
+    const nameCompare = compareLastName(
+      primarySubjectName(a.card?.subjects),
+      primarySubjectName(b.card?.subjects),
+    );
+    if (nameCompare !== 0) return nameCompare;
+    return (a.card?.set_name ?? "").localeCompare(b.card?.set_name ?? "");
+  });
 }

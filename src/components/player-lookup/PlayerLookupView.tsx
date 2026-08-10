@@ -413,6 +413,9 @@ export function PlayerLookupView() {
               placeholder="Young Guns, Canvas, Auto..."
               className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white outline-none ring-sky-500/40 focus:ring"
             />
+            <p className="mt-1 text-xs text-slate-500">
+              Matches subset, parallel, set, card number, or attributes
+            </p>
           </label>
         </div>
 
@@ -503,7 +506,8 @@ export function PlayerLookupView() {
 
           {sortedVariants.length === 0 ? (
             <p className="rounded-xl border border-slate-800 bg-slate-900/40 p-6 text-sm text-slate-400">
-              No catalog variants found for that player.
+              No catalog variants found for that player
+              {cardQuery.trim() ? ` matching “${cardQuery.trim()}”.` : "."}
             </p>
           ) : sortMode === "set" ? (
             groupedVariants.map(([setName, variants]) => (

@@ -1,9 +1,9 @@
 import {
+  fetchCollection,
   getCardComps,
   getCardMarket,
   getCardParallels,
   getCardPriceHistory,
-  searchCollection,
 } from "@/lib/slab/client";
 import type {
   CardComps,
@@ -45,6 +45,7 @@ export interface GradedPriceSummary {
 export interface ParallelSummary {
   card: CardOut;
   headlineFmv: string | null;
+  ownedCount: number;
 }
 
 export interface CardDetailResult {
@@ -100,19 +101,28 @@ function computeUplift(
   return toDecimal(graded - raw);
 }
 
-async function findOwnedCopies(
-  cardUuid: string,
-  cardNumber: string,
-): Promise<CardCopyOut[]> {
-  const result = await searchCollection({
-    card_number: cardNumber,
-    limit: 100,
-  });
-
-  return (result.items ?? []).filter((copy) => copy.card_uuid === cardUuid);
+function countOwnedCopies(copies: CardCopyOut[]): number {
+  return copies.reduce((sum, copy) => sum + Math.max(copy.quantity, 1), 0);
 }
 
-async function enrichParallels(parallels: CardOut[]): Promise<ParallelSummary[]> {
+function indexOwnedCopies(
+  copies: CardCopyOut[],
+): Map<string, CardCopyOut[]> {
+  const index = new Map<string, CardCopyOut[]>();
+
+  for (const copy of copies) {
+    const current = index.get(copy.card_uuid) ?? [];
+    current.push(copy);
+    index.set(copy.card_uuid, current);
+  }
+
+  return index;
+}
+
+async function enrichParallels(
+  parallels: CardOut[],
+  ownedIndex: Map<string, CardCopyOut[]>,
+): Promise<ParallelSummary[]> {
   const batchSize = 4;
   const summaries: ParallelSummary[] = [];
 
@@ -132,7 +142,11 @@ async function enrichParallels(parallels: CardOut[]): Promise<ParallelSummary[]>
           }
         }
 
-        return { card, headlineFmv };
+        return {
+          card,
+          headlineFmv,
+          ownedCount: countOwnedCopies(ownedIndex.get(card.uuid) ?? []),
+        };
       }),
     );
     summaries.push(...batchSummaries);
@@ -153,7 +167,7 @@ export async function fetchCardDetail(
   const start = new Date();
   start.setDate(end.getDate() - HISTORY_DAYS);
 
-  const [market, comps, parallels, priceHistory] = await Promise.all([
+  const [market, comps, parallels, priceHistory, collection] = await Promise.all([
     getCardMarket(cardUuid),
     getCardComps(cardUuid, { grade_key: gradeKey, limit: COMP_LIMIT }),
     getCardParallels(cardUuid),
@@ -163,11 +177,14 @@ export async function fetchCardDetail(
       start: start.toISOString().slice(0, 10),
       end: end.toISOString().slice(0, 10),
     }),
+    fetchCollection({}),
   ]);
 
-  const ownedCopies = await findOwnedCopies(cardUuid, market.card_number);
+  const ownedIndex = indexOwnedCopies(collection.items ?? []);
+  const ownedCopies = ownedIndex.get(cardUuid) ?? [];
   const parallelSummaries = await enrichParallels(
     parallels.filter((card) => card.uuid !== cardUuid),
+    ownedIndex,
   );
 
   const rawPoint = pickRawPoint(market.price_points);

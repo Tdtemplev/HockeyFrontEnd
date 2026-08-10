@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 
 import { CardListRow } from "@/components/collection/CardListRow";
 import { CardTile } from "@/components/collection/CardTile";
+import { CollectionDuplicateGroups } from "@/components/collection/CollectionDuplicateGroups";
 import { CollectionFilterStats } from "@/components/collection/CollectionFilterStats";
 import { CollectionSetBanners } from "@/components/collection/CollectionSetBanners";
 import { CollectionTeamGroups } from "@/components/collection/CollectionTeamGroups";
@@ -11,74 +12,23 @@ import { SetupPrompt } from "@/components/collection/SetupPrompt";
 import { SummaryBar } from "@/components/collection/SummaryBar";
 import { formatApiDetail } from "@/lib/api-errors";
 import {
-  categoryFetchLimit,
   categoryQueryParams,
+  countDuplicateCards,
   filterByCategory,
+  ownedCountByCardUuid,
   type CollectionCategoryFilter,
 } from "@/lib/collection-filters";
-import { compareCardNumbers, compareLastName } from "@/lib/names";
-import { primarySubjectName } from "@/components/collection/PlayerAvatar";
+import {
+  sortCollectionCopies,
+  type CollectionSortOption,
+} from "@/lib/collection-sort";
 import type { CardCopyOut, CollectionResult, DashboardStats } from "@/lib/slab/types";
-import { confidenceScore } from "@/lib/slab/confidence";
-
-type SortOption =
-  | "value_desc"
-  | "confidence_desc"
-  | "card_number_asc"
-  | "card_number_desc"
-  | "alpha_asc";
 
 type ViewMode = "grid" | "list";
 
-const SORT_TO_API: Partial<Record<SortOption, string>> = {
-  value_desc: "-fmv",
-};
-
-function sortClientSide(items: CardCopyOut[], sort: SortOption): CardCopyOut[] {
-  const sorted = [...items];
-
-  if (sort === "card_number_asc") {
-    return sorted.sort((a, b) =>
-      compareCardNumbers(a.card?.card_number, b.card?.card_number),
-    );
-  }
-
-  if (sort === "card_number_desc") {
-    return sorted.sort((a, b) =>
-      compareCardNumbers(b.card?.card_number, a.card?.card_number),
-    );
-  }
-
-  if (sort === "confidence_desc") {
-    return sorted.sort((a, b) => {
-      const confA = confidenceScore(
-        a.market?.sample_size,
-        a.market?.low_confidence,
-      );
-      const confB = confidenceScore(
-        b.market?.sample_size,
-        b.market?.low_confidence,
-      );
-      if (confB !== confA) return confB - confA;
-      return (b.market?.sample_size ?? 0) - (a.market?.sample_size ?? 0);
-    });
-  }
-
-  if (sort === "alpha_asc") {
-    return sorted.sort((a, b) =>
-      compareLastName(
-        primarySubjectName(a.card?.subjects),
-        primarySubjectName(b.card?.subjects),
-      ),
-    );
-  }
-
-  return sorted;
-}
-
 export function CollectionView() {
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<SortOption>("value_desc");
+  const [sort, setSort] = useState<CollectionSortOption>("value_desc");
   const [view, setView] = useState<ViewMode>("grid");
   const [category, setCategory] = useState<CollectionCategoryFilter>("all");
   const [result, setResult] = useState<CollectionResult | null>(null);
@@ -90,7 +40,6 @@ export function CollectionView() {
   const loadCollection = useCallback(
     (
       search?: string,
-      nextSort?: SortOption,
       nextCategory?: CollectionCategoryFilter,
     ) => {
       startTransition(async () => {
@@ -98,11 +47,8 @@ export function CollectionView() {
 
         const activeCategory = nextCategory ?? category;
         const params = new URLSearchParams();
+        params.set("all", "true");
         if (search) params.set("q", search);
-
-        const apiSort = SORT_TO_API[nextSort ?? sort];
-        if (apiSort) params.set("sort", apiSort);
-        params.set("limit", String(categoryFetchLimit(activeCategory)));
 
         for (const [key, value] of Object.entries(
           categoryQueryParams(activeCategory),
@@ -128,7 +74,7 @@ export function CollectionView() {
         setNeedsSetup(false);
       });
     },
-    [category, sort],
+    [category],
   );
 
   useEffect(() => {
@@ -146,8 +92,7 @@ export function CollectionView() {
 
   const items = useMemo(() => {
     const base = filterByCategory(result?.items ?? [], category);
-    if (sort === "value_desc") return base;
-    return sortClientSide(base, sort);
+    return sortCollectionCopies(base, sort);
   }, [result?.items, sort, category]);
 
   const uniqueSetCount = useMemo(() => {
@@ -158,25 +103,38 @@ export function CollectionView() {
     ).size;
   }, [result?.items]);
 
+  const duplicateCount = useMemo(
+    () => countDuplicateCards(result?.items ?? []),
+    [result?.items],
+  );
+
+  const ownedTotals = useMemo(
+    () => ownedCountByCardUuid(result?.items ?? []),
+    [result?.items],
+  );
+
   const displayTotal =
-    category === "all" ? (result?.total ?? 0) : items.length;
+    category === "all"
+      ? (result?.total ?? 0)
+      : category === "duplicates"
+        ? duplicateCount
+        : items.length;
 
   const highlightCardNumber =
     sort === "card_number_asc" || sort === "card_number_desc";
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    loadCollection(query.trim() || undefined, sort, category);
+    loadCollection(query.trim() || undefined, category);
   }
 
-  function handleSortChange(nextSort: SortOption) {
+  function handleSortChange(nextSort: CollectionSortOption) {
     setSort(nextSort);
-    loadCollection(query.trim() || undefined, nextSort, category);
   }
 
   function handleCategoryChange(nextCategory: CollectionCategoryFilter) {
     setCategory(nextCategory);
-    loadCollection(query.trim() || undefined, sort, nextCategory);
+    loadCollection(query.trim() || undefined, nextCategory);
   }
 
   if (needsSetup) {
@@ -209,7 +167,7 @@ export function CollectionView() {
             <select
               value={sort}
               onChange={(event) =>
-                handleSortChange(event.target.value as SortOption)
+                handleSortChange(event.target.value as CollectionSortOption)
               }
               className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-white"
             >
@@ -222,7 +180,9 @@ export function CollectionView() {
           </label>
 
           <div className="ml-auto flex gap-2">
-            {category !== "teams" && category !== "by_set" ? (
+            {category !== "teams" &&
+            category !== "by_set" &&
+            category !== "duplicates" ? (
               <>
                 <ViewToggle active={view === "grid"} onClick={() => setView("grid")} label="Grid" />
                 <ViewToggle active={view === "list"} onClick={() => setView("list")} label="List" />
@@ -248,12 +208,15 @@ export function CollectionView() {
             onFilterChange={handleCategoryChange}
             isPending={isPending}
             setCount={uniqueSetCount}
+            duplicateCount={duplicateCount}
           />
 
           {category === "teams" ? (
             <CollectionTeamGroups items={items} />
           ) : category === "by_set" ? (
             <CollectionSetBanners items={items} />
+          ) : category === "duplicates" ? (
+            <CollectionDuplicateGroups items={result?.items ?? []} />
           ) : items.length > 0 ? (
             view === "grid" ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -262,6 +225,7 @@ export function CollectionView() {
                     key={copy.uuid}
                     copy={copy}
                     highlightChecklist={highlightCardNumber}
+                    ownedTotal={ownedTotals.get(copy.card_uuid)}
                   />
                 ))}
               </div>
@@ -272,6 +236,7 @@ export function CollectionView() {
                     key={copy.uuid}
                     copy={copy}
                     highlightChecklist={highlightCardNumber}
+                    ownedTotal={ownedTotals.get(copy.card_uuid)}
                   />
                 ))}
               </div>

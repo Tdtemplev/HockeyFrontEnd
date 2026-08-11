@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 
 import { CardListRow } from "@/components/collection/CardListRow";
 import { CardTile } from "@/components/collection/CardTile";
+import { CollectionChaseSets } from "@/components/collection/CollectionChaseSets";
 import { CollectionDuplicateGroups } from "@/components/collection/CollectionDuplicateGroups";
 import { CollectionFilterStats } from "@/components/collection/CollectionFilterStats";
 import { CollectionSetBanners } from "@/components/collection/CollectionSetBanners";
@@ -35,6 +36,7 @@ export function CollectionView() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [needsSetup, setNeedsSetup] = useState(false);
+  const [chaseSetCount, setChaseSetCount] = useState(0);
   const [isPending, startTransition] = useTransition();
 
   const loadCollection = useCallback(
@@ -90,6 +92,16 @@ export function CollectionView() {
     loadCollection();
   }, [loadCollection]);
 
+  useEffect(() => {
+    startTransition(async () => {
+      const response = await fetch("/api/chase");
+      if (response.ok) {
+        const data = (await response.json()) as { sets: unknown[] };
+        setChaseSetCount(data.sets.length);
+      }
+    });
+  }, []);
+
   const items = useMemo(() => {
     const base = filterByCategory(result?.items ?? [], category);
     return sortCollectionCopies(base, sort);
@@ -118,7 +130,9 @@ export function CollectionView() {
       ? (result?.total ?? 0)
       : category === "duplicates"
         ? duplicateCount
-        : items.length;
+        : category === "chase_sets"
+          ? chaseSetCount
+          : items.length;
 
   const highlightCardNumber =
     sort === "card_number_asc" || sort === "card_number_desc";
@@ -182,7 +196,8 @@ export function CollectionView() {
           <div className="ml-auto flex gap-2">
             {category !== "teams" &&
             category !== "by_set" &&
-            category !== "duplicates" ? (
+            category !== "duplicates" &&
+            category !== "chase_sets" ? (
               <>
                 <ViewToggle active={view === "grid"} onClick={() => setView("grid")} label="Grid" />
                 <ViewToggle active={view === "list"} onClick={() => setView("list")} label="List" />
@@ -209,6 +224,7 @@ export function CollectionView() {
             isPending={isPending}
             setCount={uniqueSetCount}
             duplicateCount={duplicateCount}
+            chaseSetCount={chaseSetCount}
           />
 
           {category === "teams" ? (
@@ -217,6 +233,8 @@ export function CollectionView() {
             <CollectionSetBanners items={items} />
           ) : category === "duplicates" ? (
             <CollectionDuplicateGroups items={result?.items ?? []} />
+          ) : category === "chase_sets" ? (
+            <CollectionChaseSets />
           ) : items.length > 0 ? (
             view === "grid" ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

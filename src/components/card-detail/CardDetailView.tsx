@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 
 import { CardPriceChart } from "@/components/card-detail/CardPriceChart";
+import { CopySaleActions } from "@/components/sales/CopySaleActions";
 import { OwnedCopyRow } from "@/components/collection/OwnedCopyRow";
 import { SetupPrompt } from "@/components/collection/SetupPrompt";
 import { PlayerAvatar, primarySubjectName } from "@/components/collection/PlayerAvatar";
@@ -43,7 +44,7 @@ export function CardDetailView({ cardUuid }: CardDetailViewProps) {
   const [needsSetup, setNeedsSetup] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  useEffect(() => {
+  const loadDetail = useCallback(() => {
     startTransition(async () => {
       setError(null);
 
@@ -64,8 +65,13 @@ export function CardDetailView({ cardUuid }: CardDetailViewProps) {
 
       const data = (await response.json()) as CardDetailResult;
       setDetail(data);
+      setNeedsSetup(false);
     });
   }, [cardUuid, gradeKey]);
+
+  useEffect(() => {
+    loadDetail();
+  }, [loadDetail]);
 
   if (needsSetup) return <SetupPrompt />;
 
@@ -149,7 +155,9 @@ export function CardDetailView({ cardUuid }: CardDetailViewProps) {
           </p>
           <div className="mt-4 space-y-3">
             {detail.ownedCopies.map((copy) => (
-              <OwnedCopyRow key={copy.uuid} copy={copy} />
+              <OwnedCopyRow key={copy.uuid} copy={copy}>
+                <CopySaleActions copy={copy} onUpdated={loadDetail} />
+              </OwnedCopyRow>
             ))}
           </div>
         </section>

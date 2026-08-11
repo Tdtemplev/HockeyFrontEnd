@@ -9,6 +9,7 @@ const FILTER_LABELS: Record<CollectionCategoryFilter, string> = {
   teams: "Team cards",
   by_set: "Sets",
   duplicates: "Duplicates",
+  chase_sets: "Chase sets",
 };
 
 interface CollectionFilterStatsProps {
@@ -18,6 +19,7 @@ interface CollectionFilterStatsProps {
   isPending?: boolean;
   setCount?: number;
   duplicateCount?: number;
+  chaseSetCount?: number;
 }
 
 interface StatItem {
@@ -31,6 +33,7 @@ function buildStatItems(
   stats: DashboardStats | null,
   setCount?: number,
   duplicateCount?: number,
+  chaseSetCount?: number,
 ): StatItem[] {
   return [
     { id: "auto", label: "Autos", value: stats?.autos ?? 0 },
@@ -57,6 +60,12 @@ function buildStatItems(
       value: duplicateCount ?? 0,
       hint: "Multiple copies",
     },
+    {
+      id: "chase_sets",
+      label: "Chase sets",
+      value: chaseSetCount ?? 0,
+      hint: "Custom completion",
+    },
   ];
 }
 
@@ -67,8 +76,9 @@ export function CollectionFilterStats({
   isPending = false,
   setCount,
   duplicateCount,
+  chaseSetCount,
 }: CollectionFilterStatsProps) {
-  const items = buildStatItems(stats, setCount, duplicateCount);
+  const items = buildStatItems(stats, setCount, duplicateCount, chaseSetCount);
 
   function handleClick(id: CollectionCategoryFilter) {
     onFilterChange(activeFilter === id ? "all" : id);
@@ -100,7 +110,7 @@ export function CollectionFilterStats({
         ) : null}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         {items.map((item) => {
           const active = activeFilter === item.id;
           return (

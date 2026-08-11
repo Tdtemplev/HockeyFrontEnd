@@ -8,6 +8,7 @@ import { useNews } from "@/components/news/NewsProvider";
 const links = [
   { href: "/", label: "Collection" },
   { href: "/portfolio", label: "Portfolio" },
+  { href: "/sales", label: "Sales" },
   { href: "/news", label: "Slab News", showBadge: true },
   { href: "/sets", label: "Set Lookup" },
   { href: "/players", label: "Player Lookup" },
@@ -16,6 +17,7 @@ const links = [
 const titles: Record<string, string> = {
   "/": "My Repository",
   "/portfolio": "Portfolio",
+  "/sales": "Sales",
   "/news": "Slab News",
   "/sets": "Set Lookup",
   "/players": "Player Lookup",

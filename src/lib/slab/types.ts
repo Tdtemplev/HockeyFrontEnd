@@ -58,8 +58,24 @@ export interface CardCopyOut {
   cost_basis?: string | null;
   status: string;
   notes?: string | null;
+  sale_price?: string | null;
+  sold_date?: string | null;
+  realized_gain_loss?: string | null;
   market?: MarketValue | null;
   card?: CardOut | null;
+}
+
+export type CopyStatus =
+  | "in_collection"
+  | "for_trade"
+  | "for_sale"
+  | "sold";
+
+export interface CardCopyUpdate {
+  status?: CopyStatus | null;
+  sale_price?: string | number | null;
+  sold_date?: string | null;
+  notes?: string | null;
 }
 
 export interface PortfolioSummary {
@@ -318,4 +334,39 @@ export interface TickerItem {
 export interface CommunityBoard {
   ticker?: TickerItem[];
   catalog?: CatalogStats | null;
+}
+
+export interface CompletionStats {
+  total_cards: number;
+  owned_cards: number;
+  completion_pct: number;
+}
+
+export interface CustomSetOut {
+  uuid: string;
+  creator_uuid: string;
+  creator_name?: string | null;
+  name: string;
+  description?: string | null;
+  visibility: string;
+  set_type: string;
+  cover_card?: CardOut | null;
+  card_count: number;
+  subscriber_count: number;
+  is_subscribed: boolean;
+}
+
+export interface CustomSetCardOut {
+  uuid: string;
+  card: CardOut;
+  match_mode: string;
+  serial_number?: number | null;
+  position: number;
+  owned: boolean;
+  owned_printing?: string | null;
+}
+
+export interface CustomSetDetail extends CustomSetOut {
+  cards: CustomSetCardOut[];
+  completion?: CompletionStats | null;
 }

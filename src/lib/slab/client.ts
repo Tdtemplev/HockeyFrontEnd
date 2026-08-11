@@ -4,6 +4,7 @@ import type {
   CardComps,
   CardMarket,
   CardCopyOut,
+  CardCopyUpdate,
   CardOut,
   CardPriceHistory,
   CardSearchQuery,
@@ -11,6 +12,8 @@ import type {
   CollectionResult,
   CollectionSearchQuery,
   CommunityBoard,
+  CustomSetDetail,
+  CustomSetOut,
   DashboardStats,
   MeOut,
   PortfolioHistory,
@@ -100,6 +103,21 @@ export async function searchCollection(
         offset: 0,
         ...query,
       }),
+    },
+  );
+}
+
+export async function updateCopy(
+  copyUuid: string,
+  body: CardCopyUpdate,
+): Promise<CardCopyOut> {
+  const collectorUuid = await getCollectorUuid();
+
+  return slabFetch<CardCopyOut>(
+    `/collectors/${collectorUuid}/copies/${copyUuid}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
     },
   );
 }
@@ -211,6 +229,21 @@ export async function getPortfolioHistory(
 export async function getCommunityBoard(limit = 20): Promise<CommunityBoard> {
   const params = new URLSearchParams({ limit: String(limit) });
   return slabFetch<CommunityBoard>(`/community?${params.toString()}`);
+}
+
+export async function listCollectorCustomSets(): Promise<CustomSetOut[]> {
+  const collectorUuid = await getCollectorUuid();
+  return slabFetch<CustomSetOut[]>(
+    `/collectors/${collectorUuid}/custom-sets`,
+  );
+}
+
+export async function getCustomSet(setUuid: string): Promise<CustomSetDetail> {
+  const collectorUuid = await getCollectorUuid();
+  const params = new URLSearchParams({ collector_uuid: collectorUuid });
+  return slabFetch<CustomSetDetail>(
+    `/custom-sets/${setUuid}?${params.toString()}`,
+  );
 }
 
 const SETS_PAGE_SIZE = 200;

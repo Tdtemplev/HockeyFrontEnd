@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState, useTransition } from "react";
 
+import { cardSubtitle, cardTitle } from "@/lib/slab/format";
 import type { CustomSetDetail, CustomSetOut } from "@/lib/slab/types";
 
 function setTypeLabel(setType: string): string {
@@ -92,9 +93,13 @@ function CommunitySetDetail({ setUuid }: { setUuid: string }) {
                   {entry.owned ? "✓" : "○"}
                 </span>
                 <span>
-                  {entry.card.subjects?.join(", ") ?? "Unknown"} —{" "}
-                  {entry.card.set_name ?? "Set"}
-                  {entry.card.subset ? ` · ${entry.card.subset}` : ""}
+                  {cardTitle(entry.card)}
+                  {cardSubtitle(entry.card) ? (
+                    <span className="text-slate-400">
+                      {" "}
+                      · {cardSubtitle(entry.card)}
+                    </span>
+                  ) : null}
                 </span>
               </li>
             ))}
@@ -110,8 +115,8 @@ function CommunitySetDetail({ setUuid }: { setUuid: string }) {
       {detail.is_subscribed ? (
         <p className="text-sm text-slate-400">
           Tracking in{" "}
-          <Link href="/?category=chase_sets" className="text-sky-400 hover:underline">
-            Collection → Chase Sets
+          <Link href="/chase" className="text-sky-400 hover:underline">
+            Chase Sets
           </Link>
           .
         </p>
@@ -295,8 +300,8 @@ export function CommunityChaseSetsView() {
         <p className="text-sm text-slate-400">
           Public chase sets from collectors on Slab. Subscribe to track your
           completion — subscribed sets appear in{" "}
-          <Link href="/?category=chase_sets" className="text-sky-400 hover:underline">
-            Collection → Chase Sets
+          <Link href="/chase" className="text-sky-400 hover:underline">
+            Chase Sets
           </Link>
           .
         </p>

@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 
 import { CardListRow } from "@/components/collection/CardListRow";
 import { CardTile } from "@/components/collection/CardTile";
-import { CollectionChaseSets } from "@/components/collection/CollectionChaseSets";
 import { CollectionDuplicateGroups } from "@/components/collection/CollectionDuplicateGroups";
+import { CollectionFilterSheet } from "@/components/collection/CollectionFilterSheet";
 import { CollectionFilterStats } from "@/components/collection/CollectionFilterStats";
 import { CollectionSetBanners } from "@/components/collection/CollectionSetBanners";
 import { CollectionTeamGroups } from "@/components/collection/CollectionTeamGroups";
@@ -19,6 +19,8 @@ import {
   ownedCountByCardUuid,
   type CollectionCategoryFilter,
 } from "@/lib/collection-filters";
+import { primarySubjectName } from "@/lib/names";
+import { prefetchPlayerImages } from "@/lib/player-image-cache";
 import {
   sortCollectionCopies,
   type CollectionSortOption,
@@ -27,23 +29,41 @@ import type { CardCopyOut, CollectionResult, DashboardStats } from "@/lib/slab/t
 
 type ViewMode = "grid" | "list";
 
+function isMobileViewport(): boolean {
+  return typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
+}
+
+function useIsMobile(): boolean {
+  const [mobile, setMobile] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+    const update = () => setMobile(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  return mobile;
+}
+
 export function CollectionView() {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<CollectionSortOption>("value_desc");
   const [view, setView] = useState<ViewMode>("grid");
   const [category, setCategory] = useState<CollectionCategoryFilter>("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [result, setResult] = useState<CollectionResult | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [needsSetup, setNeedsSetup] = useState(false);
-  const [chaseSetCount, setChaseSetCount] = useState(0);
   const [isPending, startTransition] = useTransition();
+  const isMobile = useIsMobile();
 
-  const loadChaseSetCount = useCallback(async () => {
-    const response = await fetch("/api/chase");
-    if (!response.ok) return;
-    const data = (await response.json()) as { sets?: unknown[] };
-    setChaseSetCount(data.sets?.length ?? 0);
+  useEffect(() => {
+    if (isMobileViewport()) {
+      setView("list");
+    }
   }, []);
 
   const loadCollection = useCallback(
@@ -100,14 +120,18 @@ export function CollectionView() {
   }, [loadCollection]);
 
   useEffect(() => {
-    void loadChaseSetCount();
-  }, [loadChaseSetCount]);
+    if (!result?.items?.length) return;
 
-  useEffect(() => {
-    if (category === "chase_sets") {
-      void loadChaseSetCount();
-    }
-  }, [category, loadChaseSetCount]);
+    const names = [
+      ...new Set(
+        result.items
+          .map((copy) => primarySubjectName(copy.card?.subjects))
+          .filter(Boolean),
+      ),
+    ];
+
+    void prefetchPlayerImages(names);
+  }, [result?.items]);
 
   const items = useMemo(() => {
     const base = filterByCategory(result?.items ?? [], category);
@@ -137,12 +161,15 @@ export function CollectionView() {
       ? (result?.total ?? 0)
       : category === "duplicates"
         ? duplicateCount
-        : category === "chase_sets"
-          ? chaseSetCount
-          : items.length;
+        : items.length;
 
   const highlightCardNumber =
     sort === "card_number_asc" || sort === "card_number_desc";
+
+  const showViewToggle =
+    category !== "teams" &&
+    category !== "by_set" &&
+    category !== "duplicates";
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -164,7 +191,36 @@ export function CollectionView() {
 
   return (
     <div className="space-y-6">
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <div className="sticky top-0 z-20 -mx-4 space-y-3 border-b border-slate-800 bg-[#0b1120]/95 px-4 py-3 backdrop-blur md:hidden">
+        <form onSubmit={handleSubmit} className="flex gap-2">
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search collection…"
+            className="min-w-0 flex-1 rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-white outline-none focus:border-sky-500/50"
+          />
+          <button
+            type="submit"
+            disabled={isPending}
+            className="rounded-xl bg-sky-500 px-4 py-3 font-medium text-slate-950 hover:bg-sky-400 disabled:opacity-60"
+          >
+            Go
+          </button>
+        </form>
+        <button
+          type="button"
+          onClick={() => setFiltersOpen(true)}
+          className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2.5 text-sm text-slate-200"
+        >
+          Filters & sort
+          {category !== "all" ? (
+            <span className="ml-2 text-sky-400">· filtered</span>
+          ) : null}
+        </button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="hidden space-y-3 md:block">
         <div className="flex flex-col gap-3 sm:flex-row">
           <input
             type="search"
@@ -201,10 +257,7 @@ export function CollectionView() {
           </label>
 
           <div className="ml-auto flex gap-2">
-            {category !== "teams" &&
-            category !== "by_set" &&
-            category !== "duplicates" &&
-            category !== "chase_sets" ? (
+            {showViewToggle ? (
               <>
                 <ViewToggle active={view === "grid"} onClick={() => setView("grid")} label="Grid" />
                 <ViewToggle active={view === "list"} onClick={() => setView("list")} label="List" />
@@ -213,6 +266,22 @@ export function CollectionView() {
           </div>
         </div>
       </form>
+
+      <CollectionFilterSheet
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        sort={sort}
+        onSortChange={handleSortChange}
+        view={view}
+        onViewChange={setView}
+        category={category}
+        onCategoryChange={handleCategoryChange}
+        stats={stats}
+        setCount={uniqueSetCount}
+        duplicateCount={duplicateCount}
+        isPending={isPending}
+        showViewToggle={showViewToggle}
+      />
 
       {error ? (
         <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-rose-200">
@@ -224,15 +293,16 @@ export function CollectionView() {
         <>
           <SummaryBar summary={result.summary} total={displayTotal} />
 
-          <CollectionFilterStats
-            stats={stats}
-            activeFilter={category}
-            onFilterChange={handleCategoryChange}
-            isPending={isPending}
-            setCount={uniqueSetCount}
-            duplicateCount={duplicateCount}
-            chaseSetCount={chaseSetCount}
-          />
+          <div className="hidden md:block">
+            <CollectionFilterStats
+              stats={stats}
+              activeFilter={category}
+              onFilterChange={handleCategoryChange}
+              isPending={isPending}
+              setCount={uniqueSetCount}
+              duplicateCount={duplicateCount}
+            />
+          </div>
 
           {category === "teams" ? (
             <CollectionTeamGroups items={items} />
@@ -240,8 +310,6 @@ export function CollectionView() {
             <CollectionSetBanners items={items} />
           ) : category === "duplicates" ? (
             <CollectionDuplicateGroups items={result?.items ?? []} />
-          ) : category === "chase_sets" ? (
-            <CollectionChaseSets onCountChange={setChaseSetCount} />
           ) : items.length > 0 ? (
             view === "grid" ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -262,6 +330,7 @@ export function CollectionView() {
                     copy={copy}
                     highlightChecklist={highlightCardNumber}
                     ownedTotal={ownedTotals.get(copy.card_uuid)}
+                    compact={isMobile}
                   />
                 ))}
               </div>

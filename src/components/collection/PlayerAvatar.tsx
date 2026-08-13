@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 
 import { primarySubjectName } from "@/lib/names";
+import {
+  getCachedPlayerImageUrl,
+  resolvePlayerImageUrl,
+  subscribePlayerImage,
+} from "@/lib/player-image-cache";
 
 export { primarySubjectName };
 
@@ -32,26 +37,35 @@ export function PlayerAvatar({
   size = "md",
   className = "",
 }: PlayerAvatarProps) {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null | undefined>(() =>
+    getCachedPlayerImageUrl(name),
+  );
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
     setFailed(false);
+    const cached = getCachedPlayerImageUrl(name);
+    setImageUrl(cached);
 
-    async function load() {
-      const response = await fetch(
-        `/api/player-image?name=${encodeURIComponent(name)}`,
-      );
-      if (!response.ok) return;
-      const data = (await response.json()) as { url?: string | null };
-      if (!cancelled) setImageUrl(data.url ?? null);
-    }
+    if (cached !== undefined) return;
 
-    load();
+    let cancelled = false;
+
+    void resolvePlayerImageUrl(name).then((url) => {
+      if (!cancelled) setImageUrl(url);
+    });
+
     return () => {
       cancelled = true;
     };
+  }, [name]);
+
+  useEffect(() => {
+    return subscribePlayerImage((updatedName) => {
+      if (updatedName.trim().toLowerCase() !== name.trim().toLowerCase()) return;
+      setImageUrl(getCachedPlayerImageUrl(name));
+      setFailed(false);
+    });
   }, [name]);
 
   const classes = `${sizeClass[size]} ${className} overflow-hidden rounded-full bg-slate-800 flex items-center justify-center shrink-0`;
@@ -75,5 +89,3 @@ export function PlayerAvatar({
     </div>
   );
 }
-
-// Re-exported from @/lib/names for convenience in client components.

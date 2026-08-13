@@ -333,7 +333,7 @@ function SoldRow({ copy }: { copy: CardCopyOut }) {
   );
 }
 
-export function SalesView() {
+export function SalesView({ embedded = false }: { embedded?: boolean }) {
   const [tab, setTab] = useState<SalesTab>("for_sale");
   const [payload, setPayload] = useState<SalesPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -379,6 +379,12 @@ export function SalesView() {
 
   return (
     <div className="space-y-6">
+      {!embedded ? (
+        <p className="text-sm text-slate-400">
+          Manage listings and track realized gains from cards you&apos;ve sold.
+        </p>
+      ) : null}
+
       <div className="flex flex-wrap gap-2">
         <TabButton active={tab === "for_sale"} onClick={() => setTab("for_sale")}>
           For sale ({payload?.forSaleSummary.count ?? 0})

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState, useTransition } from "react";
 
-import { CardPriceChart } from "@/components/card-detail/CardPriceChart";
+import { CardPriceChart, formatPriceHistoryRange } from "@/components/card-detail/CardPriceChart";
 import { CopySaleActions } from "@/components/sales/CopySaleActions";
 import { OwnedCopyRow } from "@/components/collection/OwnedCopyRow";
 import { SetupPrompt } from "@/components/collection/SetupPrompt";
@@ -186,7 +186,12 @@ export function CardDetailView({ cardUuid }: CardDetailViewProps) {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-lg font-semibold text-white">Price history</h3>
-              <p className="mt-1 text-sm text-slate-400">Last 90 days</p>
+              <p className="mt-1 text-sm text-slate-400">
+                {formatPriceHistoryRange(
+                  detail.priceHistory.start_date,
+                  detail.priceHistory.end_date,
+                ) ?? "Last 90 days"}
+              </p>
             </div>
             {detail.gradeKeys.length > 1 ? (
               <div className="flex flex-wrap gap-2">
@@ -208,7 +213,12 @@ export function CardDetailView({ cardUuid }: CardDetailViewProps) {
             ) : null}
           </div>
           <div className="mt-4">
-            <CardPriceChart points={detail.priceHistory.points} gradeKey={gradeKey} />
+            <CardPriceChart
+              points={detail.priceHistory.points}
+              gradeKey={gradeKey}
+              startDate={detail.priceHistory.start_date}
+              endDate={detail.priceHistory.end_date}
+            />
           </div>
         </section>
       ) : null}

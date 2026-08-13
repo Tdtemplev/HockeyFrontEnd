@@ -4,6 +4,27 @@ import { formatCurrency } from "@/lib/slab/format";
 interface CardPriceChartProps {
   points: CardPricePoint[];
   gradeKey: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+function parseChartDate(value: string): number {
+  return Date.parse(value.includes("T") ? value : `${value}T12:00:00`);
+}
+
+function formatTimestamp(time: number, short = false): string {
+  const date = new Date(time);
+  return date.toLocaleDateString("en-US", short
+    ? { month: "short", day: "numeric" }
+    : { month: "short", day: "numeric", year: "numeric" });
+}
+
+export function formatPriceHistoryRange(
+  startDate?: string,
+  endDate?: string,
+): string | null {
+  if (!startDate || !endDate) return null;
+  return `${formatTimestamp(parseChartDate(startDate))} – ${formatTimestamp(parseChartDate(endDate))}`;
 }
 
 function chartPadding(min: number, max: number): number {
@@ -14,7 +35,23 @@ function chartPadding(min: number, max: number): number {
   return span * 0.12;
 }
 
-export function CardPriceChart({ points, gradeKey }: CardPriceChartProps) {
+function buildDateTicks(rangeStart: number, rangeEnd: number, count = 4) {
+  if (rangeEnd <= rangeStart) {
+    return [{ time: rangeStart, fraction: 0.5 }];
+  }
+
+  return Array.from({ length: count }, (_, index) => ({
+    time: rangeStart + ((rangeEnd - rangeStart) * index) / (count - 1),
+    fraction: index / (count - 1),
+  }));
+}
+
+export function CardPriceChart({
+  points,
+  gradeKey,
+  startDate,
+  endDate,
+}: CardPriceChartProps) {
   if (points.length < 2) {
     return (
       <div className="flex h-48 items-center justify-center rounded-xl border border-dashed border-slate-700 text-sm text-slate-500">
@@ -31,12 +68,21 @@ export function CardPriceChart({ points, gradeKey }: CardPriceChartProps) {
   const scaleMax = medianMax + padding;
   const range = scaleMax - scaleMin || 1;
 
+  const pointTimes = points.map((point) => parseChartDate(point.date));
+  const rangeStart = startDate
+    ? parseChartDate(startDate)
+    : Math.min(...pointTimes);
+  const rangeEnd = endDate
+    ? parseChartDate(endDate)
+    : Math.max(...pointTimes);
+  const dateSpan = rangeEnd - rangeStart;
+
   const width = 800;
-  const height = 220;
+  const height = 240;
   const padLeft = 72;
   const padRight = 24;
   const padTop = 20;
-  const padBottom = 28;
+  const padBottom = 44;
   const plotWidth = width - padLeft - padRight;
   const plotHeight = height - padTop - padBottom;
 
@@ -45,7 +91,12 @@ export function CardPriceChart({ points, gradeKey }: CardPriceChartProps) {
   }
 
   function toX(index: number): number {
-    return padLeft + (index / (points.length - 1)) * plotWidth;
+    if (dateSpan <= 0) {
+      return padLeft + (index / (points.length - 1)) * plotWidth;
+    }
+
+    const time = pointTimes[index];
+    return padLeft + ((time - rangeStart) / dateSpan) * plotWidth;
   }
 
   const medianPath = medians
@@ -79,6 +130,10 @@ export function CardPriceChart({ points, gradeKey }: CardPriceChartProps) {
     return { value, y };
   });
 
+  const dateTicks = buildDateTicks(rangeStart, rangeEnd);
+  const rangeStartLabel = startDate ?? points[0]?.date ?? "";
+  const rangeEndLabel = endDate ?? points.at(-1)?.date ?? "";
+
   const periodLow = Math.min(...medians);
   const periodHigh = Math.max(...medians);
   const periodChange = medians.at(-1)! - medians[0]!;
@@ -110,7 +165,7 @@ export function CardPriceChart({ points, gradeKey }: CardPriceChartProps) {
           ) : null}
         </span>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-56 w-full">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-60 w-full">
         {gridLines.map(({ value, y }) => (
           <g key={value}>
             <line
@@ -132,6 +187,41 @@ export function CardPriceChart({ points, gradeKey }: CardPriceChartProps) {
             </text>
           </g>
         ))}
+        <line
+          x1={padLeft}
+          x2={width - padRight}
+          y1={padTop + plotHeight}
+          y2={padTop + plotHeight}
+          stroke="#334155"
+          strokeWidth="1"
+        />
+        {dateTicks.map(({ time, fraction }, index) => {
+          const x = padLeft + fraction * plotWidth;
+          const anchor =
+            index === 0 ? "start" : index === dateTicks.length - 1 ? "end" : "middle";
+
+          return (
+            <g key={`${time}-${fraction}`}>
+              <line
+                x1={x}
+                x2={x}
+                y1={padTop + plotHeight}
+                y2={padTop + plotHeight + 4}
+                stroke="#475569"
+                strokeWidth="1"
+              />
+              <text
+                x={x}
+                y={height - 14}
+                textAnchor={anchor}
+                fill="#64748b"
+                fontSize="11"
+              >
+                {formatTimestamp(time, true)}
+              </text>
+            </g>
+          );
+        })}
         {bandPath ? (
           <path d={bandPath} fill="rgba(56, 189, 248, 0.12)" stroke="none" />
         ) : null}
@@ -146,10 +236,13 @@ export function CardPriceChart({ points, gradeKey }: CardPriceChartProps) {
           />
         ))}
       </svg>
-      <div className="mt-2 flex justify-between text-xs text-slate-500">
-        <span>{points[0]?.date}</span>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+        <span>
+          {rangeStartLabel && rangeEndLabel
+            ? `${formatTimestamp(parseChartDate(rangeStartLabel))} – ${formatTimestamp(parseChartDate(rangeEndLabel))}`
+            : "Date range unavailable"}
+        </span>
         <span>{formatCurrency(String(medians.at(-1)))} latest</span>
-        <span>{points.at(-1)?.date}</span>
       </div>
     </div>
   );

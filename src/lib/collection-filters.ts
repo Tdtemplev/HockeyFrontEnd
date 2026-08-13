@@ -8,8 +8,7 @@ export type CollectionCategoryFilter =
   | "numbered"
   | "teams"
   | "by_set"
-  | "duplicates"
-  | "chase_sets";
+  | "duplicates";
 
 export function copyTeams(copy: CardCopyOut): string[] {
   const teams =

@@ -1,5 +1,5 @@
-import { SetLookupView } from "@/components/sets/SetLookupView";
+import { redirect } from "next/navigation";
 
-export default function SetsPage() {
-  return <SetLookupView />;
+export default function SetsRedirectPage() {
+  redirect("/browse?tab=sets");
 }

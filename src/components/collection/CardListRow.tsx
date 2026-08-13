@@ -19,6 +19,7 @@ interface CardListRowProps {
   highlightChecklist?: boolean;
   highlightSerial?: boolean;
   ownedTotal?: number;
+  compact?: boolean;
 }
 
 export function CardListRow({
@@ -26,6 +27,7 @@ export function CardListRow({
   highlightChecklist = false,
   highlightSerial = false,
   ownedTotal,
+  compact = false,
 }: CardListRowProps) {
   const card = copy.card;
   const fmv = copy.market?.fair_market_value;
@@ -33,6 +35,34 @@ export function CardListRow({
   const playerName = primarySubjectName(card?.subjects);
   const checklist = setChecklistNumber(card);
   const ownedSerial = ownedSerialLabel(copy);
+
+  if (compact) {
+    return (
+      <Link
+        href={`/cards/${copy.card_uuid}`}
+        className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/50 p-3 transition hover:border-sky-500/40 hover:bg-slate-900/70"
+      >
+        <PlayerAvatar name={playerName} size="sm" />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate font-medium text-white">{cardTitle(card)}</p>
+            <CopyStatusBadge copy={copy} />
+            {ownedTotal && ownedTotal > 1 ? (
+              <span className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium text-emerald-200">
+                ×{ownedTotal}
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-0.5 truncate text-sm text-slate-400">{cardSubtitle(card)}</p>
+          <p className="mt-1 text-xs text-slate-500">{gradeLabel(copy)}</p>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="font-medium text-white">{formatCurrency(fmv)}</p>
+          <p className="mt-1 text-xs text-slate-500">{formatSignedCurrency(gain)}</p>
+        </div>
+      </Link>
+    );
+  }
 
   return (
     <Link

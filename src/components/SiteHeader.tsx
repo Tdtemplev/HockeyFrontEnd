@@ -7,21 +7,32 @@ import { useNews } from "@/components/news/NewsProvider";
 
 const links = [
   { href: "/", label: "Collection" },
+  { href: "/chase", label: "Chase Sets" },
+  { href: "/browse", label: "Browse" },
   { href: "/portfolio", label: "Portfolio" },
-  { href: "/sales", label: "Sales" },
-  { href: "/news", label: "Slab News", showBadge: true },
-  { href: "/sets", label: "Set Lookup" },
-  { href: "/players", label: "Player Lookup" },
+  { href: "/news", label: "Alerts", showBadge: true },
 ];
 
-const titles: Record<string, string> = {
-  "/": "My Repository",
+export const pageTitles: Record<string, string> = {
+  "/": "Collection",
+  "/chase": "Chase Sets",
+  "/browse": "Browse",
   "/portfolio": "Portfolio",
-  "/sales": "Sales",
-  "/news": "Slab News",
-  "/sets": "Set Lookup",
-  "/players": "Player Lookup",
+  "/news": "Alerts",
 };
+
+export function pageTitleForPath(pathname: string): string {
+  if (pathname.startsWith("/cards/")) return "Card detail";
+  if (pathname.startsWith("/portfolio")) return "Portfolio";
+  if (pathname.startsWith("/browse")) return "Browse";
+  if (pathname.startsWith("/chase")) return "Chase Sets";
+  return pageTitles[pathname] ?? "Slab Collection";
+}
+
+function linkActive(pathname: string, href: string): boolean {
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export function SiteHeader() {
   const pathname = usePathname();
@@ -29,18 +40,18 @@ export function SiteHeader() {
 
   return (
     <header className="border-b border-slate-800/80 bg-[#0b1120]/95 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-        <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-sky-400">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 md:px-6 md:py-5">
+        <div className="min-w-0">
+          <p className="text-[10px] uppercase tracking-[0.25em] text-sky-400 md:text-xs">
             Slab Collection
           </p>
-          <h1 className="mt-1 text-2xl font-semibold text-white">
-            {titles[pathname] ?? "Slab Collection"}
+          <h1 className="mt-1 truncate text-xl font-semibold text-white md:text-2xl">
+            {pageTitleForPath(pathname)}
           </h1>
         </div>
-        <nav className="flex flex-wrap gap-4 text-sm sm:gap-6">
+        <nav className="hidden flex-wrap gap-4 text-sm md:flex md:gap-6">
           {links.map((link) => {
-            const active = pathname === link.href;
+            const active = linkActive(pathname, link.href);
             const badge = link.showBadge && alertCount > 0 ? alertCount : 0;
 
             return (

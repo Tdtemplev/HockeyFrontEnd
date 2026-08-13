@@ -304,7 +304,7 @@ function VariantRow({ variant }: { variant: PlayerVariant }) {
   );
 }
 
-export function PlayerLookupView() {
+export function PlayerLookupView({ embedded = false }: { embedded?: boolean }) {
   const [player, setPlayer] = useState("");
   const [cardQuery, setCardQuery] = useState("");
   const [cardType, setCardType] = useState<CardTypeFilter>("all");
@@ -380,13 +380,19 @@ export function PlayerLookupView() {
   return (
     <div className="space-y-8">
       <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
-        <h2 className="text-lg font-semibold text-white">Player lookup</h2>
-        <p className="mt-1 text-sm text-slate-400">
-          Search Slab&apos;s catalog for every variant of a player and compare
-          comp counts, FMV, purchase ranges, and raw sale averages.
-        </p>
+        {!embedded ? (
+          <>
+            <h2 className="text-lg font-semibold text-white">Player lookup</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Search Slab&apos;s catalog for every variant of a player and compare
+              comp counts, FMV, purchase ranges, and raw sale averages.
+            </p>
+          </>
+        ) : (
+          <h2 className="text-lg font-semibold text-white">Search players</h2>
+        )}
 
-        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+        <div className={`grid gap-4 lg:grid-cols-2 ${embedded ? "mt-5" : "mt-5"}`}>
           <label className="block">
             <span className="text-sm text-slate-400">Player</span>
             <input

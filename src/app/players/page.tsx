@@ -1,5 +1,5 @@
-import { PlayerLookupView } from "@/components/player-lookup/PlayerLookupView";
+import { redirect } from "next/navigation";
 
-export default function PlayersPage() {
-  return <PlayerLookupView />;
+export default function PlayersRedirectPage() {
+  redirect("/browse");
 }

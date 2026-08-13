@@ -1,5 +1,5 @@
-import { SalesView } from "@/components/sales/SalesView";
+import { redirect } from "next/navigation";
 
-export default function SalesPage() {
-  return <SalesView />;
+export default function SalesRedirectPage() {
+  redirect("/portfolio?tab=sales");
 }

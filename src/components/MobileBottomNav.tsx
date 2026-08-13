@@ -1,0 +1,111 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
+
+import { useNews } from "@/components/news/NewsProvider";
+
+const primaryTabs = [
+  {
+    href: "/",
+    label: "Collection",
+    match: (path: string) => path === "/" || path.startsWith("/cards/"),
+  },
+  {
+    href: "/chase",
+    label: "Chase Sets",
+    match: (path: string) => path.startsWith("/chase"),
+  },
+  {
+    href: "/portfolio",
+    label: "Portfolio",
+    match: (path: string) =>
+      path.startsWith("/portfolio") || path.startsWith("/sales"),
+  },
+];
+
+const moreLinks = [
+  { href: "/browse", label: "Browse" },
+  { href: "/news", label: "Alerts", showBadge: true },
+];
+
+export function MobileBottomNav() {
+  const pathname = usePathname();
+  const { alertCount } = useNews();
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  const moreActive = moreLinks.some((link) => pathname.startsWith(link.href));
+
+  return (
+    <>
+      {moreOpen ? (
+        <button
+          type="button"
+          aria-label="Close menu"
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={() => setMoreOpen(false)}
+        />
+      ) : null}
+
+      {moreOpen ? (
+        <div className="fixed inset-x-4 bottom-20 z-50 rounded-2xl border border-slate-700 bg-slate-950 p-2 shadow-xl md:hidden">
+          {moreLinks.map((link) => {
+            const active = pathname.startsWith(link.href);
+            const badge = link.showBadge && alertCount > 0 ? alertCount : 0;
+
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setMoreOpen(false)}
+                className={`flex items-center justify-between rounded-xl px-4 py-3 text-sm ${
+                  active
+                    ? "bg-sky-500/10 text-sky-200"
+                    : "text-slate-200 hover:bg-slate-900"
+                }`}
+              >
+                <span>{link.label}</span>
+                {badge > 0 ? (
+                  <span className="rounded-full bg-sky-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                    {badge > 9 ? "9+" : badge}
+                  </span>
+                ) : null}
+              </Link>
+            );
+          })}
+        </div>
+      ) : null}
+
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-[#0b1120]/95 backdrop-blur md:hidden">
+        <div className="mx-auto grid max-w-7xl grid-cols-4 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2">
+          {primaryTabs.map((tab) => {
+            const active = tab.match(pathname);
+
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                className={`rounded-lg px-2 py-2 text-center text-xs font-medium ${
+                  active ? "text-sky-300" : "text-slate-400"
+                }`}
+              >
+                {tab.label}
+              </Link>
+            );
+          })}
+
+          <button
+            type="button"
+            onClick={() => setMoreOpen((open) => !open)}
+            className={`rounded-lg px-2 py-2 text-center text-xs font-medium ${
+              moreActive || moreOpen ? "text-sky-300" : "text-slate-400"
+            }`}
+          >
+            More
+          </button>
+        </div>
+      </nav>
+    </>
+  );
+}

@@ -5,6 +5,14 @@ export function lastName(name: string): string {
   return parts[parts.length - 1];
 }
 
+export function primarySubjectName(
+  subjects?: { name: string }[] | string[] | null,
+): string {
+  if (!subjects?.length) return "Unknown";
+  const first = subjects[0];
+  return typeof first === "string" ? first : first.name;
+}
+
 export function compareLastName(a: string, b: string): number {
   const lastA = lastName(a);
   const lastB = lastName(b);

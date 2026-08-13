@@ -1,0 +1,362 @@
+"use client";
+
+import Link from "next/link";
+import { useCallback, useEffect, useState, useTransition } from "react";
+
+import type { CustomSetDetail, CustomSetOut } from "@/lib/slab/types";
+
+function setTypeLabel(setType: string): string {
+  return setType === "dynamic" ? "Master (dynamic)" : "Roster (curated)";
+}
+
+function CommunitySetDetail({ setUuid }: { setUuid: string }) {
+  const [detail, setDetail] = useState<CustomSetDetail | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    startTransition(async () => {
+      setError(null);
+      const response = await fetch(`/api/chase/${setUuid}`);
+      if (!response.ok) {
+        const body = (await response.json()) as { detail?: string };
+        setError(body.detail ?? "Failed to load set");
+        return;
+      }
+      setDetail((await response.json()) as CustomSetDetail);
+    });
+  }, [setUuid]);
+
+  if (isPending && !detail) {
+    return (
+      <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950/50 p-4">
+        <div className="h-16 animate-pulse rounded bg-slate-800" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+        {error}
+      </div>
+    );
+  }
+
+  if (!detail) return null;
+
+  const completion = detail.completion;
+  const sampleCards = detail.cards.slice(0, 8);
+
+  return (
+    <div className="mt-3 space-y-3 rounded-lg border border-slate-800 bg-slate-950/50 p-4">
+      {completion ? (
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-[11px] uppercase tracking-wider text-slate-500">
+              Your completion
+            </p>
+            <p className="text-2xl font-semibold text-sky-300">
+              {completion.completion_pct.toFixed(1)}%
+            </p>
+            <p className="text-sm text-slate-400">
+              {completion.owned_cards} of {completion.total_cards} slots owned
+            </p>
+          </div>
+          <div className="h-2 w-full max-w-xs overflow-hidden rounded-full bg-slate-800 sm:w-40">
+            <div
+              className="h-full rounded-full bg-sky-500"
+              style={{ width: `${Math.min(completion.completion_pct, 100)}%` }}
+            />
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-slate-400">
+          Subscribe to track your completion against this set.
+        </p>
+      )}
+
+      {sampleCards.length > 0 ? (
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-slate-500">
+            Sample cards
+          </p>
+          <ul className="mt-2 space-y-1 text-sm text-slate-300">
+            {sampleCards.map((entry) => (
+              <li key={entry.uuid} className="flex items-center gap-2">
+                <span
+                  className={
+                    entry.owned ? "text-emerald-400" : "text-slate-600"
+                  }
+                >
+                  {entry.owned ? "✓" : "○"}
+                </span>
+                <span>
+                  {entry.card.subjects?.join(", ") ?? "Unknown"} —{" "}
+                  {entry.card.set_name ?? "Set"}
+                  {entry.card.subset ? ` · ${entry.card.subset}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {detail.cards.length > sampleCards.length ? (
+            <p className="mt-2 text-xs text-slate-500">
+              + {detail.cards.length - sampleCards.length} more cards
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {detail.is_subscribed ? (
+        <p className="text-sm text-slate-400">
+          Tracking in{" "}
+          <Link href="/?category=chase_sets" className="text-sky-400 hover:underline">
+            Collection → Chase Sets
+          </Link>
+          .
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function CommunitySetRow({
+  set,
+  expanded,
+  onToggle,
+  onSubscribeChange,
+}: {
+  set: CustomSetOut;
+  expanded: boolean;
+  onToggle: () => void;
+  onSubscribeChange: (setUuid: string, subscribed: boolean) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function toggleSubscribe() {
+    setBusy(true);
+    setError(null);
+    const method = set.is_subscribed ? "DELETE" : "POST";
+
+    try {
+      const response = await fetch(`/api/chase/${set.uuid}/subscribe`, {
+        method,
+      });
+
+      if (!response.ok) {
+        const body = (await response.json()) as { detail?: string };
+        setError(body.detail ?? "Subscribe failed");
+        return;
+      }
+
+      onSubscribeChange(set.uuid, !set.is_subscribed);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <article className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="min-w-0 flex-1 text-left"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-base font-semibold text-white">{set.name}</h3>
+            {set.is_subscribed ? (
+              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
+                Subscribed
+              </span>
+            ) : null}
+          </div>
+          {set.description ? (
+            <p className="mt-1 text-sm text-slate-400">{set.description}</p>
+          ) : null}
+          <p className="mt-2 text-xs text-slate-500">
+            {setTypeLabel(set.set_type)}
+            {set.creator_name ? ` · by ${set.creator_name}` : ""}
+          </p>
+        </button>
+
+        <div className="flex shrink-0 items-center gap-4">
+          <div className="text-right text-sm">
+            <p className="text-[10px] uppercase tracking-wider text-slate-500">
+              Cards
+            </p>
+            <p className="font-semibold text-white">{set.card_count}</p>
+          </div>
+          <div className="text-right text-sm">
+            <p className="text-[10px] uppercase tracking-wider text-slate-500">
+              Subscribers
+            </p>
+            <p className="font-semibold text-white">{set.subscriber_count}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void toggleSubscribe()}
+            disabled={busy}
+            className={`rounded-lg px-3 py-2 text-sm font-medium transition disabled:opacity-60 ${
+              set.is_subscribed
+                ? "border border-slate-700 bg-slate-950 text-slate-200 hover:border-slate-600"
+                : "bg-sky-600 text-white hover:bg-sky-500"
+            }`}
+          >
+            {busy
+              ? "…"
+              : set.is_subscribed
+                ? "Unsubscribe"
+                : "Subscribe"}
+          </button>
+        </div>
+      </div>
+
+      {error ? (
+        <p className="mt-3 text-sm text-rose-300">{error}</p>
+      ) : null}
+
+      <button
+        type="button"
+        onClick={onToggle}
+        className="mt-3 text-xs text-sky-400 hover:underline"
+      >
+        {expanded ? "Hide details" : "Preview set"}
+      </button>
+
+      {expanded ? <CommunitySetDetail setUuid={set.uuid} /> : null}
+    </article>
+  );
+}
+
+export function CommunityChaseSetsView() {
+  const [sets, setSets] = useState<CustomSetOut[]>([]);
+  const [query, setQuery] = useState("");
+  const [expandedUuid, setExpandedUuid] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  const loadSets = useCallback((search?: string) => {
+    startTransition(async () => {
+      setError(null);
+      const trimmed = search?.trim();
+      const endpoint = trimmed
+        ? `/api/chase/discover?q=${encodeURIComponent(trimmed)}`
+        : "/api/chase/community";
+
+      const response = await fetch(endpoint);
+      if (!response.ok) {
+        const body = (await response.json()) as { detail?: string };
+        setError(body.detail ?? "Failed to load community sets");
+        return;
+      }
+
+      const data = (await response.json()) as { sets: CustomSetOut[] };
+      setSets(data.sets);
+    });
+  }, []);
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      loadSets();
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      loadSets(trimmed);
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [query, loadSets]);
+
+  function handleSubscribeChange(setUuid: string, subscribed: boolean) {
+    setSets((current) =>
+      current.map((set) => {
+        if (set.uuid !== setUuid) return set;
+        return {
+          ...set,
+          is_subscribed: subscribed,
+          subscriber_count: Math.max(
+            0,
+            set.subscriber_count + (subscribed ? 1 : -1),
+          ),
+        };
+      }),
+    );
+  }
+
+  const isSearching = query.trim().length > 0;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="text-sm text-slate-400">
+          Public chase sets from collectors on Slab. Subscribe to track your
+          completion — subscribed sets appear in{" "}
+          <Link href="/?category=chase_sets" className="text-sky-400 hover:underline">
+            Collection → Chase Sets
+          </Link>
+          .
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-4">
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search community sets by name…"
+          className="w-full max-w-md rounded-lg border border-slate-700 bg-slate-900/60 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-sky-500/50 focus:outline-none focus:ring-1 focus:ring-sky-500/30"
+        />
+        <span className="text-sm text-slate-400">
+          {sets.length} set{sets.length === 1 ? "" : "s"}
+          {isSearching ? " found" : " · sorted by subscribers"}
+        </span>
+      </div>
+
+      {isPending && !sets.length ? (
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div
+              key={index}
+              className="h-28 animate-pulse rounded-xl bg-slate-900"
+            />
+          ))}
+        </div>
+      ) : sets.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-700 px-6 py-16 text-center text-slate-400">
+          {isSearching
+            ? "No public chase sets matched that search."
+            : "No popular community sets yet. Check back soon, or create a public set with the chase wizard."}
+        </div>
+      ) : (
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium uppercase tracking-wider text-slate-500">
+            {isSearching ? "Search results" : "Top community sets"}
+          </h2>
+          {sets.map((set) => (
+            <CommunitySetRow
+              key={set.uuid}
+              set={set}
+              expanded={expandedUuid === set.uuid}
+              onToggle={() =>
+                setExpandedUuid((current) =>
+                  current === set.uuid ? null : set.uuid,
+                )
+              }
+              onSubscribeChange={handleSubscribeChange}
+            />
+          ))}
+        </section>
+      )}
+
+      {error ? (
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-rose-200">
+          {error}
+        </div>
+      ) : null}
+    </div>
+  );
+}

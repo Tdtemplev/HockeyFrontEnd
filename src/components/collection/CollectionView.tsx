@@ -39,6 +39,13 @@ export function CollectionView() {
   const [chaseSetCount, setChaseSetCount] = useState(0);
   const [isPending, startTransition] = useTransition();
 
+  const loadChaseSetCount = useCallback(async () => {
+    const response = await fetch("/api/chase");
+    if (!response.ok) return;
+    const data = (await response.json()) as { sets?: unknown[] };
+    setChaseSetCount(data.sets?.length ?? 0);
+  }, []);
+
   const loadCollection = useCallback(
     (
       search?: string,
@@ -93,14 +100,14 @@ export function CollectionView() {
   }, [loadCollection]);
 
   useEffect(() => {
-    startTransition(async () => {
-      const response = await fetch("/api/chase");
-      if (response.ok) {
-        const data = (await response.json()) as { sets: unknown[] };
-        setChaseSetCount(data.sets.length);
-      }
-    });
-  }, []);
+    void loadChaseSetCount();
+  }, [loadChaseSetCount]);
+
+  useEffect(() => {
+    if (category === "chase_sets") {
+      void loadChaseSetCount();
+    }
+  }, [category, loadChaseSetCount]);
 
   const items = useMemo(() => {
     const base = filterByCategory(result?.items ?? [], category);
@@ -234,7 +241,7 @@ export function CollectionView() {
           ) : category === "duplicates" ? (
             <CollectionDuplicateGroups items={result?.items ?? []} />
           ) : category === "chase_sets" ? (
-            <CollectionChaseSets />
+            <CollectionChaseSets onCountChange={setChaseSetCount} />
           ) : items.length > 0 ? (
             view === "grid" ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

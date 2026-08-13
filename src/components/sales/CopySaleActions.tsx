@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 
+import {
+  formatListingNotes,
+  parseListingNotes,
+} from "@/lib/listing";
 import { todayIsoDate } from "@/lib/sales";
 import { formatCurrency } from "@/lib/slab/format";
 import type { CardCopyOut, CardCopyUpdate } from "@/lib/slab/types";
@@ -13,9 +17,11 @@ interface CopySaleActionsProps {
 }
 
 export function CopySaleActions({ copy, onUpdated }: CopySaleActionsProps) {
+  const initialListing = parseListingNotes(copy.notes);
   const [showListForm, setShowListForm] = useState(false);
   const [showSoldForm, setShowSoldForm] = useState(false);
-  const [listingNotes, setListingNotes] = useState(copy.notes ?? "");
+  const [askPrice, setAskPrice] = useState(initialListing.askPrice ?? "");
+  const [listingNotes, setListingNotes] = useState(initialListing.notes ?? "");
   const [salePrice, setSalePrice] = useState("");
   const [soldDate, setSoldDate] = useState(todayIsoDate());
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +48,13 @@ export function CopySaleActions({ copy, onUpdated }: CopySaleActionsProps) {
     });
   }
 
+  function listForSale() {
+    patchCopy({
+      status: "for_sale",
+      notes: formatListingNotes(askPrice, listingNotes),
+    });
+  }
+
   if (copy.status === "sold") {
     return (
       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-800/80 pt-3 text-sm">
@@ -60,12 +73,22 @@ export function CopySaleActions({ copy, onUpdated }: CopySaleActionsProps) {
   }
 
   if (copy.status === "for_sale") {
+    const listing = parseListingNotes(copy.notes);
+
     return (
       <div className="mt-3 space-y-3 border-t border-slate-800/80 pt-3">
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-amber-200">
             For sale
           </span>
+          {listing.askPrice ? (
+            <span className="text-amber-100">
+              Ask {formatCurrency(listing.askPrice)}
+            </span>
+          ) : null}
+          {listing.notes ? (
+            <span className="text-slate-400">{listing.notes}</span>
+          ) : null}
           <Link href="/sales" className="text-sky-400 hover:text-sky-300">
             Manage on Sales →
           </Link>
@@ -155,20 +178,28 @@ export function CopySaleActions({ copy, onUpdated }: CopySaleActionsProps) {
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            patchCopy({
-              status: "for_sale",
-              notes: listingNotes.trim() || null,
-            });
+            listForSale();
           }}
           className="space-y-2"
         >
           <label className="block text-xs text-slate-400">
-            Listing notes / ask price
+            Ask price
+            <input
+              type="text"
+              inputMode="decimal"
+              value={askPrice}
+              onChange={(event) => setAskPrice(event.target.value)}
+              placeholder="250.00"
+              className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white"
+            />
+          </label>
+          <label className="block text-xs text-slate-400">
+            Listing notes
             <input
               type="text"
               value={listingNotes}
               onChange={(event) => setListingNotes(event.target.value)}
-              placeholder="Ask $250 · eBay · OBO"
+              placeholder="eBay · OBO · ships padded mailer"
               className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white"
             />
           </label>

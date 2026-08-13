@@ -12,8 +12,13 @@ import type {
   CollectionResult,
   CollectionSearchQuery,
   CommunityBoard,
+  CustomSetCardAdd,
+  CustomSetCardOut,
+  CustomSetCreate,
   CustomSetDetail,
   CustomSetOut,
+  CustomSetSearchQuery,
+  CustomSetSearchResult,
   DashboardStats,
   MeOut,
   PortfolioHistory,
@@ -61,6 +66,31 @@ async function slabFetch<T>(
   }
 
   return response.json() as Promise<T>;
+}
+
+async function slabFetchVoid(path: string, init?: RequestInit): Promise<void> {
+  const { apiKey, apiUrl } = requireSlabConfig();
+
+  const response = await fetch(`${apiUrl}${path}`, {
+    ...init,
+    headers: {
+      "x-api-key": apiKey,
+      "content-type": "application/json",
+      ...init?.headers,
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    let detail = response.statusText;
+    try {
+      const body = (await response.json()) as { detail?: unknown };
+      detail = formatApiDetail(body.detail, detail);
+    } catch {
+      // ignore parse errors
+    }
+    throw new SlabApiError(detail, response.status);
+  }
 }
 
 let cachedCollectorUuid: string | null = null;
@@ -153,6 +183,31 @@ export async function searchCards(
   });
 }
 
+const CARD_PAGE_SIZE = 200;
+
+export async function fetchAllMatchingCards(
+  query: CardSearchQuery = {},
+): Promise<{ cards: CardOut[]; total: number }> {
+  const cards: CardOut[] = [];
+  let offset = 0;
+  let total = Infinity;
+
+  while (offset < total) {
+    const page = await searchCards({
+      ...query,
+      limit: CARD_PAGE_SIZE,
+      offset,
+      include_market: false,
+    });
+    total = page.total;
+    cards.push(...(page.items ?? []));
+    offset += CARD_PAGE_SIZE;
+    if (!page.items?.length) break;
+  }
+
+  return { cards, total };
+}
+
 export async function getCardMarket(cardUuid: string): Promise<CardMarket> {
   return slabFetch<CardMarket>(`/cards/${cardUuid}/market`);
 }
@@ -231,6 +286,37 @@ export async function getCommunityBoard(limit = 20): Promise<CommunityBoard> {
   return slabFetch<CommunityBoard>(`/community?${params.toString()}`);
 }
 
+export async function searchCustomSets(
+  query: CustomSetSearchQuery = {},
+): Promise<CustomSetSearchResult> {
+  const collectorUuid = await getCollectorUuid();
+  return slabFetch<CustomSetSearchResult>("/custom-sets/search", {
+    method: "POST",
+    body: JSON.stringify({
+      collector_uuid: collectorUuid,
+      sort: "-subscribers",
+      limit: 50,
+      ...query,
+    }),
+  });
+}
+
+export async function subscribeToCustomSet(setUuid: string): Promise<void> {
+  const collectorUuid = await getCollectorUuid();
+  await slabFetchVoid(
+    `/collectors/${collectorUuid}/custom-sets/${setUuid}/subscribe`,
+    { method: "POST" },
+  );
+}
+
+export async function unsubscribeFromCustomSet(setUuid: string): Promise<void> {
+  const collectorUuid = await getCollectorUuid();
+  await slabFetchVoid(
+    `/collectors/${collectorUuid}/custom-sets/${setUuid}/subscribe`,
+    { method: "DELETE" },
+  );
+}
+
 export async function listCollectorCustomSets(): Promise<CustomSetOut[]> {
   const collectorUuid = await getCollectorUuid();
   return slabFetch<CustomSetOut[]>(
@@ -243,6 +329,36 @@ export async function getCustomSet(setUuid: string): Promise<CustomSetDetail> {
   const params = new URLSearchParams({ collector_uuid: collectorUuid });
   return slabFetch<CustomSetDetail>(
     `/custom-sets/${setUuid}?${params.toString()}`,
+  );
+}
+
+export async function createCustomSet(
+  body: CustomSetCreate,
+): Promise<CustomSetOut> {
+  const collectorUuid = await getCollectorUuid();
+  return slabFetch<CustomSetOut>(
+    `/collectors/${collectorUuid}/custom-sets`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        visibility: body.visibility ?? "private",
+        ...body,
+      }),
+    },
+  );
+}
+
+export async function addCustomSetCard(
+  setUuid: string,
+  body: CustomSetCardAdd,
+): Promise<CustomSetCardOut> {
+  const collectorUuid = await getCollectorUuid();
+  return slabFetch<CustomSetCardOut>(
+    `/collectors/${collectorUuid}/custom-sets/${setUuid}/cards`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
   );
 }
 

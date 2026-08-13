@@ -1,9 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
+import { ChaseSetWizard } from "@/components/collection/ChaseSetWizard";
 import { TeamLogo } from "@/components/collection/TeamLogo";
+import {
+  defaultChaseViewMode,
+  filterChaseEntries,
+  filterPlayerGroups,
+  groupChaseEntriesByPlayer,
+  searchChaseEntries,
+  searchPlayerGroups,
+  type ChaseEntryFilter,
+  type ChaseViewMode,
+  type PlayerChaseGroup,
+} from "@/lib/chase-set-view";
 import { cardSubtitle, cardTitle, formatCurrency } from "@/lib/slab/format";
 import type { CustomSetDetail, CustomSetOut } from "@/lib/slab/types";
 
@@ -57,6 +69,9 @@ function ChaseSetBanner({
 function ChaseSetDetailPanel({ setUuid }: { setUuid: string }) {
   const [detail, setDetail] = useState<CustomSetDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [entryFilter, setEntryFilter] = useState<ChaseEntryFilter>("all");
+  const [viewMode, setViewMode] = useState<ChaseViewMode>("card");
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -68,9 +83,37 @@ function ChaseSetDetailPanel({ setUuid }: { setUuid: string }) {
         setError(body.detail ?? "Failed to load set");
         return;
       }
-      setDetail((await response.json()) as CustomSetDetail);
+      const data = (await response.json()) as CustomSetDetail;
+      setDetail(data);
+      setViewMode(defaultChaseViewMode(data.cards.length));
     });
   }, [setUuid]);
+
+  const filteredEntries = useMemo(() => {
+    if (!detail) return [];
+    const searched = searchChaseEntries(detail.cards, search);
+    return filterChaseEntries(searched, entryFilter);
+  }, [detail, search, entryFilter]);
+
+  const playerGroups = useMemo(() => {
+    if (!detail) return [];
+    const grouped = groupChaseEntriesByPlayer(detail.cards);
+    const searched = searchPlayerGroups(grouped, search);
+    return filterPlayerGroups(searched, entryFilter);
+  }, [detail, search, entryFilter]);
+
+  const playerCompletion = useMemo(() => {
+    if (!detail?.cards.length) return null;
+    const allGroups = groupChaseEntriesByPlayer(detail.cards);
+    const ownedPlayers = allGroups.filter((group) => group.owned).length;
+    return {
+      ownedPlayers,
+      totalPlayers: allGroups.length,
+      pct: allGroups.length
+        ? (ownedPlayers / allGroups.length) * 100
+        : 0,
+    };
+  }, [detail?.cards]);
 
   if (isPending && !detail) {
     return (
@@ -91,8 +134,6 @@ function ChaseSetDetailPanel({ setUuid }: { setUuid: string }) {
   if (!detail) return null;
 
   const completion = detail.completion;
-  const owned = detail.cards.filter((entry) => entry.owned);
-  const missing = detail.cards.filter((entry) => !entry.owned);
 
   return (
     <div className="space-y-4 rounded-xl border border-slate-800 bg-slate-900/40 p-4">
@@ -100,7 +141,7 @@ function ChaseSetDetailPanel({ setUuid }: { setUuid: string }) {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-[11px] uppercase tracking-wider text-slate-500">
-              Your completion
+              Card slots
             </p>
             <p className={`text-3xl font-semibold ${completionTone(completion.completion_pct)}`}>
               {completion.completion_pct.toFixed(1)}%
@@ -108,6 +149,12 @@ function ChaseSetDetailPanel({ setUuid }: { setUuid: string }) {
             <p className="mt-1 text-sm text-slate-400">
               {completion.owned_cards} of {completion.total_cards} slots owned
             </p>
+            {playerCompletion && playerCompletion.totalPlayers > 0 ? (
+              <p className="mt-1 text-sm text-slate-500">
+                {playerCompletion.ownedPlayers} of {playerCompletion.totalPlayers}{" "}
+                players ({playerCompletion.pct.toFixed(1)}%)
+              </p>
+            ) : null}
           </div>
           <div className="h-2 w-full max-w-xs overflow-hidden rounded-full bg-slate-800 sm:w-48">
             <div
@@ -118,38 +165,140 @@ function ChaseSetDetailPanel({ setUuid }: { setUuid: string }) {
         </div>
       ) : null}
 
-      {owned.length > 0 ? (
-        <section>
-          <h4 className="text-sm font-medium text-emerald-300">
-            Owned ({owned.length})
-          </h4>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            {owned.map((entry) => (
-              <ChaseCardEntry key={entry.uuid} entry={entry} owned />
-            ))}
-          </div>
+      {detail.cards.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search players or cards…"
+            className="min-w-[12rem] flex-1 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white"
+          />
+          <FilterToggle
+            active={entryFilter === "all"}
+            onClick={() => setEntryFilter("all")}
+            label="All"
+          />
+          <FilterToggle
+            active={entryFilter === "owned"}
+            onClick={() => setEntryFilter("owned")}
+            label="Owned"
+          />
+          <FilterToggle
+            active={entryFilter === "missing"}
+            onClick={() => setEntryFilter("missing")}
+            label="Missing"
+          />
+          <FilterToggle
+            active={viewMode === "player"}
+            onClick={() => setViewMode("player")}
+            label="By player"
+          />
+          <FilterToggle
+            active={viewMode === "card"}
+            onClick={() => setViewMode("card")}
+            label="By card"
+          />
+        </div>
+      ) : null}
+
+      {viewMode === "player" && playerGroups.length > 0 ? (
+        <section className="space-y-2">
+          {playerGroups.map((group) => (
+            <PlayerChaseGroupRow key={group.playerName} group={group} />
+          ))}
         </section>
       ) : null}
 
-      {missing.length > 0 ? (
-        <section>
-          <h4 className="text-sm font-medium text-slate-400">
-            Still need ({missing.length})
-          </h4>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            {missing.map((entry) => (
-              <ChaseCardEntry key={entry.uuid} entry={entry} owned={false} />
-            ))}
-          </div>
+      {viewMode === "card" && filteredEntries.length > 0 ? (
+        <section className="grid gap-2 sm:grid-cols-2">
+          {filteredEntries.map((entry) => (
+            <ChaseCardEntry key={entry.uuid} entry={entry} owned={entry.owned} />
+          ))}
         </section>
+      ) : null}
+
+      {detail.cards.length > 0 &&
+      ((viewMode === "player" && playerGroups.length === 0) ||
+        (viewMode === "card" && filteredEntries.length === 0)) ? (
+        <p className="text-sm text-slate-500">No matches for this filter.</p>
       ) : null}
 
       {detail.cards.length === 0 ? (
         <p className="text-sm text-slate-500">
           {detail.set_type === "dynamic"
             ? "No catalog cards match this set’s filter yet."
-            : "This set has no cards yet. Add some with the CLI."}
+            : "This set has no cards yet. Use the roster wizard or CLI."}
         </p>
+      ) : null}
+    </div>
+  );
+}
+
+function FilterToggle({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        active
+          ? "rounded-lg border border-sky-500/50 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-200"
+          : "rounded-lg border border-slate-800 px-3 py-2 text-xs text-slate-400 hover:border-slate-600"
+      }
+    >
+      {label}
+    </button>
+  );
+}
+
+function PlayerChaseGroupRow({ group }: { group: PlayerChaseGroup }) {
+  const [expanded, setExpanded] = useState(false);
+  const team = group.entries[0]?.card.subjects.find((subject) =>
+    subject.team?.trim(),
+  )?.team;
+
+  return (
+    <div
+      className={`rounded-lg border ${
+        group.owned
+          ? "border-emerald-500/30 bg-emerald-500/5"
+          : "border-slate-800 bg-slate-950/40"
+      }`}
+    >
+      <button
+        type="button"
+        onClick={() => setExpanded((value) => !value)}
+        className="flex w-full items-center gap-3 px-3 py-2.5 text-left"
+      >
+        {team ? <TeamLogo team={team} size="sm" className="shrink-0" /> : null}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-white">{group.playerName}</p>
+          <p className="text-xs text-slate-500">
+            {group.ownedCount}/{group.totalCount} card slots
+          </p>
+        </div>
+        <span
+          className={`text-xs font-medium ${
+            group.owned ? "text-emerald-400" : "text-slate-500"
+          }`}
+        >
+          {group.owned ? "Owned" : "Need"}
+        </span>
+      </button>
+      {expanded ? (
+        <div className="grid gap-2 border-t border-slate-800/80 p-2 sm:grid-cols-2">
+          {group.entries.map((entry) => (
+            <ChaseCardEntry key={entry.uuid} entry={entry} owned={entry.owned} />
+          ))}
+        </div>
       ) : null}
     </div>
   );
@@ -226,37 +375,36 @@ function ChaseCliHelp() {
           </p>
 
           <div>
-            <p className="font-medium text-white">Option A — dynamic set (recommended for a full team)</p>
+            <p className="font-medium text-white">Create in the app</p>
             <p className="mt-1 text-slate-400">
-              Auto-includes every catalog card matching your filter (team + season). Best for
-              all Hurricanes players on 2025–26 cards.
+              Use the wizard above for filter-based roster or master sets. For
+              hand-picked cards, use curated + slab chase add.
             </p>
-            <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-200">{`slab chase create
-# Set name: 2025/2026 Hurricane Team
-# Description: Carolina Hurricanes roster chase
-# Set type: dynamic
-# Team: Carolina Hurricanes
-# Season year: 2025`}</pre>
           </div>
 
           <div>
-            <p className="font-medium text-white">Option B — curated set (hand-picked players)</p>
+            <p className="font-medium text-white">Roster chase (one per player)</p>
             <p className="mt-1 text-slate-400">
-              You pick each player/card slot manually. Use any_printing match mode to count any
-              parallel of that player&apos;s card.
+              Wizard → preview catalog → choose Roster chase. Slab groups matching
+              cards by player and adds one any_printing slot each.
+            </p>
+          </div>
+
+          <div>
+            <p className="font-medium text-white">Master set (dynamic)</p>
+            <p className="mt-1 text-slate-400">
+              Wizard → choose Master set, or CLI: slab chase create with type
+              dynamic and the same filters.
             </p>
             <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-200">{`slab chase create
-# Set name: 2025/2026 Hurricane Team
-# Set type: curated
-
-slab chase add
-# Pick the set, then search each player and add their card`}</pre>
+# Set type: dynamic
+# Team: Hurricanes
+# Season year: 2025`}</pre>
           </div>
 
           <p className="text-xs text-slate-500">
-            Note: Carolina&apos;s Stanley Cup win was 2006. For that roster, use a curated set and
-            add each 2006 player, or use dynamic filters with year 2006 and team Carolina
-            Hurricanes. Refresh this page after creating a set with slab chase list.
+            Large dynamic sets: use By player + Missing filters in the detail view.
+            Refresh after CLI changes with slab chase list.
           </p>
         </div>
       ) : null}
@@ -264,13 +412,17 @@ slab chase add
   );
 }
 
-export function CollectionChaseSets() {
+export function CollectionChaseSets({
+  onCountChange,
+}: {
+  onCountChange?: (count: number) => void;
+}) {
   const [sets, setSets] = useState<CustomSetOut[]>([]);
   const [expandedUuid, setExpandedUuid] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  useEffect(() => {
+  function loadSets() {
     startTransition(async () => {
       setError(null);
       const response = await fetch("/api/chase");
@@ -282,7 +434,24 @@ export function CollectionChaseSets() {
       const data = (await response.json()) as { sets: CustomSetOut[] };
       setSets(data.sets);
     });
+  }
+
+  useEffect(() => {
+    loadSets();
   }, []);
+
+  useEffect(() => {
+    onCountChange?.(sets.length);
+  }, [sets.length, onCountChange]);
+
+  function handleSetCreated(set: CustomSetOut) {
+    setSets((current) => {
+      const exists = current.some((item) => item.uuid === set.uuid);
+      return exists ? current : [set, ...current];
+    });
+    setExpandedUuid(set.uuid);
+    loadSets();
+  }
 
   if (isPending && sets.length === 0) {
     return (
@@ -296,6 +465,7 @@ export function CollectionChaseSets() {
 
   return (
     <div className="space-y-4">
+      <ChaseSetWizard onCreated={handleSetCreated} />
       <ChaseCliHelp />
 
       {error ? (

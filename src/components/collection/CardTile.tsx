@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { CopyStatusBadge } from "@/components/collection/CopyStatusBadge";
 import { PriceConfidenceBadge } from "@/components/collection/PriceConfidenceBadge";
 import { PlayerAvatar, primarySubjectName } from "@/components/collection/PlayerAvatar";
 import type { CardCopyOut } from "@/lib/slab/types";
@@ -54,6 +55,7 @@ export function CardTile({
               <span className="rounded-full bg-slate-950/70 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-sky-300">
                 {gradeLabel(copy)}
               </span>
+              <CopyStatusBadge copy={copy} />
               {ownedTotal && ownedTotal > 1 ? (
                 <span className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium text-emerald-200">
                   ×{ownedTotal}

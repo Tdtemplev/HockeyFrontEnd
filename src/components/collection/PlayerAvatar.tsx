@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 
+import { primarySubjectName } from "@/lib/names";
+
+export { primarySubjectName };
+
 interface PlayerAvatarProps {
   name: string;
   size?: "sm" | "md" | "lg";
@@ -72,10 +76,4 @@ export function PlayerAvatar({
   );
 }
 
-export function primarySubjectName(
-  subjects?: { name: string }[] | string[] | null,
-): string {
-  if (!subjects?.length) return "Unknown";
-  const first = subjects[0];
-  return typeof first === "string" ? first : first.name;
-}
+// Re-exported from @/lib/names for convenience in client components.

@@ -167,6 +167,13 @@ export interface CardSearchQuery {
   subject?: string | null;
   set_slug?: string[] | null;
   release?: string[] | null;
+  team?: string[] | null;
+  year?: number | null;
+  brand?: string[] | null;
+  finish?: string[] | null;
+  attribute?: string[] | null;
+  base_only?: boolean;
+  numbered_max?: number;
   include_market?: boolean;
   auto?: boolean;
   rookie?: boolean;
@@ -332,8 +339,30 @@ export interface TickerItem {
 }
 
 export interface CommunityBoard {
-  ticker?: TickerItem[];
+  stats?: CatalogStats | null;
+  /** @deprecated Slab wire field is `stats`; kept for older payloads */
   catalog?: CatalogStats | null;
+  ticker?: TickerItem[];
+  popular_sets?: CustomSetOut[];
+}
+
+export interface CustomSetSearchQuery {
+  q?: string;
+  creator_uuid?: string;
+  collector_uuid?: string;
+  visibility?: "private" | "public";
+  set_type?: "curated" | "dynamic";
+  subscribed_only?: boolean;
+  sort?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface CustomSetSearchResult {
+  total: number;
+  limit: number;
+  offset: number;
+  items: CustomSetOut[];
 }
 
 export interface CompletionStats {
@@ -369,4 +398,19 @@ export interface CustomSetCardOut {
 export interface CustomSetDetail extends CustomSetOut {
   cards: CustomSetCardOut[];
   completion?: CompletionStats | null;
+}
+
+export interface CustomSetCreate {
+  name: string;
+  description?: string | null;
+  visibility?: "private" | "public";
+  set_type: "curated" | "dynamic";
+  filter_json?: Record<string, unknown> | null;
+}
+
+export interface CustomSetCardAdd {
+  card_uuid: string;
+  match_mode: "any_printing" | "exact" | "exact_serial";
+  serial_number?: number | null;
+  position?: number;
 }

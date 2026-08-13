@@ -6,6 +6,11 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import { SetupPrompt } from "@/components/collection/SetupPrompt";
 import { PlayerAvatar, primarySubjectName } from "@/components/collection/PlayerAvatar";
 import {
+  formatListingNotes,
+  parseAskAmount,
+  parseListingNotes,
+} from "@/lib/listing";
+import {
   sortForSaleCopies,
   sortSoldCopies,
   todayIsoDate,
@@ -55,15 +60,21 @@ function ForSaleRow({
   copy: CardCopyOut;
   onUpdated: () => void;
 }) {
+  const listing = parseListingNotes(copy.notes);
   const [showSoldForm, setShowSoldForm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [askPrice, setAskPrice] = useState(listing.askPrice ?? "");
+  const [listingNotes, setListingNotes] = useState(listing.notes ?? "");
   const [salePrice, setSalePrice] = useState("");
   const [soldDate, setSoldDate] = useState(todayIsoDate());
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const playerName = primarySubjectName(copy.card?.subjects);
+  const askAmount = parseAskAmount(listing.askPrice);
+  const fmvAmount = parseAskAmount(copy.market?.fair_market_value ?? null);
 
-  function patchCopy(body: CardCopyUpdate) {
+  function patchCopy(body: CardCopyUpdate, onSuccess?: () => void) {
     startTransition(async () => {
       setError(null);
       const response = await fetch(`/api/sales/${copy.uuid}`, {
@@ -79,6 +90,8 @@ function ForSaleRow({
       }
 
       setShowSoldForm(false);
+      setShowEditForm(false);
+      onSuccess?.();
       onUpdated();
     });
   }
@@ -114,12 +127,29 @@ function ForSaleRow({
             {ownedSerialLabel(copy) ? ` · Serial ${ownedSerialLabel(copy)}` : ""}
             {copy.quantity > 1 ? ` · Qty ${copy.quantity}` : ""}
           </p>
-          {copy.notes ? (
-            <p className="mt-2 text-sm text-amber-200/90">{copy.notes}</p>
+          {listing.askPrice ? (
+            <p className="mt-2 text-sm font-medium text-amber-200">
+              Ask {formatCurrency(listing.askPrice)}
+              {askAmount !== null && fmvAmount !== null ? (
+                <span className="ml-2 font-normal text-slate-400">
+                  ({askAmount >= fmvAmount ? "+" : ""}
+                  {formatCurrency(String(askAmount - fmvAmount))} vs FMV)
+                </span>
+              ) : null}
+            </p>
+          ) : null}
+          {listing.notes ? (
+            <p className="mt-1 text-sm text-slate-400">{listing.notes}</p>
           ) : null}
         </div>
 
-        <div className="grid gap-3 text-right text-sm sm:grid-cols-3 sm:gap-6">
+        <div className="grid gap-3 text-right text-sm sm:grid-cols-4 sm:gap-6">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-slate-500">Ask</p>
+            <p className="mt-1 font-medium text-amber-200">
+              {listing.askPrice ? formatCurrency(listing.askPrice) : "—"}
+            </p>
+          </div>
           <div>
             <p className="text-[10px] uppercase tracking-wider text-slate-500">FMV</p>
             <p className="mt-1 font-medium text-white">
@@ -142,7 +172,7 @@ function ForSaleRow({
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {!showSoldForm ? (
+        {!showSoldForm && !showEditForm ? (
           <>
             <button
               type="button"
@@ -154,6 +184,14 @@ function ForSaleRow({
             </button>
             <button
               type="button"
+              onClick={() => setShowEditForm(true)}
+              disabled={isPending}
+              className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:border-slate-500 disabled:opacity-60"
+            >
+              Edit listing
+            </button>
+            <button
+              type="button"
               onClick={() => patchCopy({ status: "in_collection" })}
               disabled={isPending}
               className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:border-slate-500 disabled:opacity-60"
@@ -161,6 +199,50 @@ function ForSaleRow({
               Back to collection
             </button>
           </>
+        ) : showEditForm ? (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              patchCopy({
+                notes: formatListingNotes(askPrice, listingNotes),
+              });
+            }}
+            className="flex w-full flex-wrap items-end gap-3"
+          >
+            <label className="flex flex-col gap-1 text-sm text-slate-400">
+              Ask price
+              <input
+                type="text"
+                inputMode="decimal"
+                value={askPrice}
+                onChange={(event) => setAskPrice(event.target.value)}
+                className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-white"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-slate-400">
+              Notes
+              <input
+                type="text"
+                value={listingNotes}
+                onChange={(event) => setListingNotes(event.target.value)}
+                className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-white"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={isPending}
+              className="rounded-lg bg-emerald-500 px-3 py-2 text-sm font-medium text-slate-950 disabled:opacity-60"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowEditForm(false)}
+              className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300"
+            >
+              Cancel
+            </button>
+          </form>
         ) : (
           <form onSubmit={handleMarkSold} className="flex w-full flex-wrap items-end gap-3">
             <label className="flex flex-col gap-1 text-sm text-slate-400">

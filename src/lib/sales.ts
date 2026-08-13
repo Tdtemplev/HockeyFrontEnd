@@ -1,4 +1,5 @@
 import type { CardCopyOut, CollectionResult } from "@/lib/slab/types";
+import { parseAskAmount, parseListingNotes } from "@/lib/listing";
 
 export interface SalesSummary {
   count: number;
@@ -46,10 +47,13 @@ export function summarizeSold(items: CardCopyOut[]): SalesSummary {
 
 export function sortForSaleCopies(items: CardCopyOut[]): CardCopyOut[] {
   return [...items].sort((a, b) => {
-    const valueDiff =
-      Number(b.market?.fair_market_value ?? 0) -
+    const askA =
+      parseAskAmount(parseListingNotes(a.notes).askPrice) ??
       Number(a.market?.fair_market_value ?? 0);
-    if (valueDiff !== 0) return valueDiff;
+    const askB =
+      parseAskAmount(parseListingNotes(b.notes).askPrice) ??
+      Number(b.market?.fair_market_value ?? 0);
+    if (askB !== askA) return askB - askA;
     return (a.card?.set_name ?? "").localeCompare(b.card?.set_name ?? "");
   });
 }

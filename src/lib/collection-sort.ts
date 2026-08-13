@@ -1,6 +1,5 @@
-import { primarySubjectName } from "@/components/collection/PlayerAvatar";
+import { compareCardNumbers, compareLastName, primarySubjectName } from "@/lib/names";
 import { confidenceScore } from "@/lib/slab/confidence";
-import { compareCardNumbers, compareLastName } from "@/lib/names";
 import type { CardCopyOut } from "@/lib/slab/types";
 
 export type CollectionSortOption =

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { CopyStatusBadge } from "@/components/collection/CopyStatusBadge";
 import type { CardCopyOut } from "@/lib/slab/types";
 import {
   cardSubtitle,
@@ -43,6 +44,7 @@ export function CardListRow({
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <p className="font-medium text-white">{cardTitle(card)}</p>
+          <CopyStatusBadge copy={copy} />
           {ownedTotal && ownedTotal > 1 ? (
             <span className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium text-emerald-200">
               ×{ownedTotal}

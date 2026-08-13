@@ -1,5 +1,4 @@
-import { primarySubjectName } from "@/components/collection/PlayerAvatar";
-import { compareLastName } from "@/lib/names";
+import { compareLastName, primarySubjectName } from "@/lib/names";
 import type { CardCopyOut, CardOut } from "@/lib/slab/types";
 
 export type CollectionCategoryFilter =
